@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Меню-План — рецепты и список покупок под ваш бюджет</title>
-<meta name="description" content="Укажите бюджет, аллергии и магазин — сервис составит меню на неделю, месяц или два и посчитает список покупок по ценам Пятёрочки, Магнита и Ленты.">
+<title>Меню-План — рецепты, КБЖУ и список покупок под ваш бюджет</title>
+<meta name="description" content="Укажите бюджет, цель (диета или набор массы), аллергии и магазин — сервис составит меню на неделю, месяц или два с расчётом КБЖУ и списком покупок по ценам Пятёрочки, Магнита и Ленты.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles-extra.css">
 </head>
 <body>
 
@@ -20,6 +21,7 @@
       <span class="logo-text">Меню<span>-План</span></span>
     </a>
     <nav class="header-nav">
+      <a href="#fridge">Что есть дома</a>
       <a href="#how">Как это работает</a>
       <a href="#catalog-info">Каталог и цены</a>
       <a class="btn btn-sm btn-primary" href="#planner">Составить меню</a>
@@ -34,14 +36,14 @@
     <div class="wrap hero-inner">
       <div class="hero-text">
         <div class="badge">Каталог «Пятёрочки» и ещё 4 сети · цены <span id="priceDate"></span></div>
-        <h1>Меню и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
+        <h1>Меню, КБЖУ и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
         <p class="lead">
-          Введите сумму, отметьте аллергии и выберите магазин — сервис соберёт рецепты
-          на неделю, месяц или два месяца, посчитает граммовки и выдаст готовый список
-          покупок с ценами. Ни одного продукта, на который у вас аллергия.
+          Выберите цель — диета, поддержание или набор массы, — введите сумму и отметьте аллергии.
+          Сервис соберёт рецепты на неделю, месяц или два месяца так, чтобы закрыть норму белка
+          и клетчатки, посчитает граммовки и выдаст список покупок с ценами.
         </p>
         <div class="hero-stats">
-          <div><b id="statProducts">0</b><span>продуктов в каталоге</span></div>
+          <div><b id="statProducts">0</b><span>продуктов с КБЖУ</span></div>
           <div><b id="statRecipes">0</b><span>рецептов</span></div>
           <div><b id="statAllerg">0</b><span>групп аллергенов</span></div>
         </div>
@@ -63,14 +65,27 @@
   <!-- ================= ПЛАНИРОВЩИК ================= -->
   <section id="planner" class="planner">
     <div class="wrap">
+      <span class="eyebrow">Шаг первый</span>
       <h2 class="section-title">Настройте план</h2>
       <p class="section-sub">Все поля влияют на результат. Ничего не отправляется — расчёт идёт прямо в браузере.</p>
 
-      <form class="form-card" id="planForm" autocomplete="off">
+      <form class="form-card reveal" id="planForm" autocomplete="off">
 
-        <!-- 1. Бюджет -->
+        <!-- 1. Цель -->
         <div class="field">
-          <label class="field-label"><span class="num">1</span> Бюджет на продукты</label>
+          <label class="field-label"><span class="num">1</span> Цель питания</label>
+          <p class="hint">От цели зависят калорийность, норма белка и размер порций.</p>
+          <div class="goals" id="goalList"></div>
+          <div class="weight-row">
+            <label for="weight">Средний вес человека</label>
+            <div class="input-unit"><input type="number" id="weight" min="30" max="200" step="1" value="70" inputmode="numeric"><span>кг</span></div>
+            <span class="hint">Нужен для расчёта нормы калорий и белка</span>
+          </div>
+        </div>
+
+        <!-- 2. Бюджет -->
+        <div class="field">
+          <label class="field-label"><span class="num">2</span> Бюджет на продукты</label>
           <div class="budget-row">
             <div class="input-money">
               <input type="number" id="budget" min="500" step="100" value="7000" inputmode="numeric">
@@ -87,9 +102,9 @@
           <p class="hint" id="budgetHint">Это вся сумма на выбранный период, а не в день.</p>
         </div>
 
-        <!-- 2. Период -->
+        <!-- 3. Период -->
         <div class="field">
-          <label class="field-label"><span class="num">2</span> На какой срок</label>
+          <label class="field-label"><span class="num">3</span> На какой срок</label>
           <div class="chips chips-lg" id="periodChips">
             <button type="button" class="chip active" data-days="7">Неделя<small>7 дней</small></button>
             <button type="button" class="chip" data-days="14">2 недели<small>14 дней</small></button>
@@ -98,10 +113,10 @@
           </div>
         </div>
 
-        <!-- 3. Люди и приёмы пищи -->
+        <!-- 4-5. Люди и приёмы пищи -->
         <div class="field-grid">
           <div class="field">
-            <label class="field-label"><span class="num">3</span> Сколько человек</label>
+            <label class="field-label"><span class="num">4</span> Сколько человек</label>
             <div class="stepper">
               <button type="button" id="peopleMinus" aria-label="Меньше">−</button>
               <div class="stepper-value"><b id="peopleValue">2</b><span>чел.</span></div>
@@ -109,7 +124,7 @@
             </div>
           </div>
           <div class="field">
-            <label class="field-label"><span class="num">4</span> Приёмов пищи в день</label>
+            <label class="field-label"><span class="num">5</span> Приёмов пищи в день</label>
             <div class="chips" id="mealsChips">
               <button type="button" class="chip" data-meals="3">3 <small>завтрак, обед, ужин</small></button>
               <button type="button" class="chip active" data-meals="4">4 <small>+ перекус</small></button>
@@ -117,22 +132,22 @@
           </div>
         </div>
 
-        <!-- 5. Магазин -->
+        <!-- 6. Магазин -->
         <div class="field">
-          <label class="field-label"><span class="num">5</span> Где будете закупаться</label>
+          <label class="field-label"><span class="num">6</span> Где будете закупаться</label>
           <div class="stores" id="storeList"></div>
         </div>
 
-        <!-- 6. Аллергии -->
+        <!-- 7. Аллергии -->
         <div class="field">
-          <label class="field-label"><span class="num">6</span> Аллергии и что исключить</label>
+          <label class="field-label"><span class="num">7</span> Аллергии и что исключить</label>
           <p class="hint">Отмеченные продукты не попадут ни в один рецепт и ни в один пункт списка покупок.</p>
           <div class="chips allergens" id="allergenList"></div>
         </div>
 
-        <!-- 7. Дополнительно -->
+        <!-- 8. Дополнительно -->
         <div class="field">
-          <label class="field-label"><span class="num">7</span> Дополнительно</label>
+          <label class="field-label"><span class="num">8</span> Дополнительно</label>
           <div class="switches">
             <label class="switch"><input type="checkbox" id="optVeg"><span class="slider"></span><em>Вегетарианское меню<small>без мяса, птицы и рыбы</small></em></label>
             <label class="switch"><input type="checkbox" id="optNoPork"><span class="slider"></span><em>Без свинины<small>халяль-френдли подбор</small></em></label>
@@ -176,6 +191,8 @@
 
       <div class="stats" id="stats"></div>
 
+      <div class="macros-card" id="macros"></div>
+
       <div class="tabs">
         <button class="tab active" data-tab="menu">Меню по дням</button>
         <button class="tab" data-tab="shopping">Список покупок</button>
@@ -201,14 +218,51 @@
     </div>
   </section>
 
+  <!-- ================= ХОЛОДИЛЬНИК ================= -->
+  <section id="fridge" class="fridge">
+    <div class="wrap">
+      <span class="eyebrow">Ничего не пропадёт</span>
+      <h2 class="section-title">Что приготовить из остатков</h2>
+      <p class="section-sub">
+        Отметьте, что лежит в холодильнике и в шкафу. Сервис найдёт блюда, которые можно
+        сделать прямо сейчас, и подскажет, где не хватает одного-двух продуктов.
+      </p>
+
+      <div class="fridge-card reveal">
+        <div class="fridge-search">
+          <input type="search" id="fridgeSearch" placeholder="Начните вводить: курица, яйца, гречка…">
+          <button type="button" class="btn btn-ghost btn-sm" id="fridgeClear">Очистить всё</button>
+        </div>
+        <div id="fridgeSuggest" class="fridge-suggest" hidden></div>
+
+        <div class="fridge-selected" id="fridgeSelected"></div>
+
+        <details class="fridge-all">
+          <summary>Показать весь список продуктов</summary>
+          <div id="fridgeAll"></div>
+        </details>
+
+        <label class="switch fridge-switch">
+          <input type="checkbox" id="fridgeStaples" checked><span class="slider"></span>
+          <em>Соль, специи, масло, мука есть<small>не считать их недостающими</small></em>
+        </label>
+
+        <button type="button" class="btn btn-primary btn-xl btn-block" id="fridgeBtn">Найти блюда</button>
+      </div>
+
+      <div id="fridgeResult"></div>
+    </div>
+  </section>
+
   <!-- ================= КАК ЭТО РАБОТАЕТ ================= -->
   <section id="how" class="how">
     <div class="wrap">
+      <span class="eyebrow">Под капотом</span>
       <h2 class="section-title">Как это работает</h2>
-      <div class="how-grid">
-        <div class="how-card"><span class="how-num">1</span><h3>Вы задаёте рамки</h3><p>Бюджет, срок, количество едоков и список аллергий. Магазин определяет прайс, по которому считается корзина.</p></div>
-        <div class="how-card"><span class="how-num">2</span><h3>Фильтр аллергенов</h3><p>Из базы убираются все продукты с отмеченными аллергенами, а следом — каждый рецепт, где такой продукт встречался. Подмен не бывает.</p></div>
-        <div class="how-card"><span class="how-num">3</span><h3>Подбор под сумму</h3><p>Алгоритм перебирает уровни «дешевле — дороже», пока итог корзины не сядет в ваш бюджет: от каш и супов до мяса и рыбы каждый день.</p></div>
+      <div class="how-grid reveal">
+        <div class="how-card"><span class="how-num">1</span><h3>Цель и норма КБЖУ</h3><p>По весу и цели считается норма: калории, белок (1,8 г/кг на диете, 2 г/кг на массе), жиры и клетчатка — 14 г на 1000 ккал.</p></div>
+        <div class="how-card"><span class="how-num">2</span><h3>Фильтр аллергенов</h3><p>Из базы убираются продукты с отмеченными аллергенами, а следом — каждый рецепт, где такой продукт встречался. Подмен не бывает.</p></div>
+        <div class="how-card"><span class="how-num">3</span><h3>Подбор под норму и сумму</h3><p>Для каждого дня перебираются наборы блюд: побеждает тот, что лучше закрывает белок и клетчатку, не вылезая из бюджета. Порции подгоняются под калорийность.</p></div>
         <div class="how-card"><span class="how-num">4</span><h3>Список с ценами</h3><p>Граммовки всех блюд суммируются и округляются до реальных упаковок: не «370 г гречки», а «1 пачка 800 г — 108 ₽».</p></div>
       </div>
     </div>
@@ -217,8 +271,9 @@
   <!-- ================= КАТАЛОГ ================= -->
   <section id="catalog-info" class="catalog">
     <div class="wrap">
-      <h2 class="section-title">Каталог и цены</h2>
-      <p class="section-sub">Полный список продуктов, из которых собираются рецепты. Цена указана за килограмм или литр.</p>
+      <span class="eyebrow">Прозрачно</span>
+      <h2 class="section-title">Каталог, цены и КБЖУ</h2>
+      <p class="section-sub">Полный список продуктов, из которых собираются рецепты. Цена указана за килограмм или литр, КБЖУ — на 100 г.</p>
       <div class="catalog-controls">
         <input type="search" id="catalogSearch" placeholder="Поиск: гречка, творог, минтай…">
         <select id="catalogStore"></select>
@@ -240,10 +295,11 @@
   <div class="wrap footer-inner">
     <div>
       <div class="logo"><span class="logo-mark">🥗</span><span class="logo-text">Меню<span>-План</span></span></div>
-      <p>Планировщик питания под бюджет. Работает полностью в браузере, данные никуда не уходят.</p>
+      <p>Планировщик питания под бюджет и КБЖУ. Работает полностью в браузере, данные никуда не уходят.</p>
     </div>
     <div class="footer-links">
       <a href="#planner">Составить меню</a>
+      <a href="#fridge">Что есть дома</a>
       <a href="#how">Как это работает</a>
       <a href="#catalog-info">Каталог и цены</a>
     </div>
@@ -262,5 +318,6 @@
 <script src="data.js"></script>
 <script src="recipes.js"></script>
 <script src="app.js"></script>
+<script src="fridge.js"></script>
 </body>
 </html>
