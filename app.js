@@ -7,10 +7,12 @@ const state = {
   goal: 'normal',
   dietStyle: 'any',   /* any | healthy | lean */
   cuisines: [],       /* пусто = любая кухня */
-  weight: 70,
   budget: 7000,
   days: 7,
-  people: 2,
+  persons: [
+    { type: 'adult', weight: 70 },
+    { type: 'adult', weight: 70 },
+  ],
   mealsCount: 4,
   store: 'p5',
   excluded: [],
@@ -47,15 +49,51 @@ function rng(seed) {
   };
 }
 
-/* ---------- нормы КБЖУ ---------- */
-function targets() {
+/* ---------- нормы КБЖУ ----------
+   Норма считается для каждого едока отдельно: у взрослого от веса и цели,
+   у ребёнка — от возраста (цель к нему не применяется). Меню собирается
+   на суммарную норму семьи, а порции делятся пропорционально. */
+
+function childNorm(age) {
+  return CHILD_NORMS.find(n => age <= n.max) || CHILD_NORMS[CHILD_NORMS.length - 1];
+}
+
+function personTargets(p) {
+  if (p.type === 'child') {
+    const n = childNorm(p.age || 7);
+    const kcal = n.kcal;
+    const protein = Math.max(20, Math.round((p.weight || 25) * n.prPerKg));
+    const fat = Math.round(kcal * 0.32 / 9);
+    const fiber = Math.max(10, Math.round((p.age || 7) + 5));
+    const carb = Math.max(60, Math.round((kcal - protein * 4 - fat * 9) / 4));
+    return { kcal, protein, fat, carb, fiber, ageLabel: n.label, isChild: true };
+  }
   const g = GOALS.find(x => x.id === state.goal) || GOALS[1];
-  const kcal = Math.round(state.weight * g.kcalPerKg);
-  const protein = Math.round(state.weight * g.proteinPerKg);
-  const fat = Math.round(state.weight * g.fatPerKg);
+  const w = p.weight || 70;
+  const kcal = Math.round(w * g.kcalPerKg);
+  const protein = Math.round(w * g.proteinPerKg);
+  const fat = Math.round(w * g.fatPerKg);
   const fiber = Math.max(25, Math.round(kcal / 1000 * 14));
   const carb = Math.max(60, Math.round((kcal - protein * 4 - fat * 9) / 4));
-  return { kcal, protein, fat, carb, fiber, goal: g };
+  return { kcal, protein, fat, carb, fiber, isChild: false };
+}
+
+function peopleCount() { return state.persons.length; }
+function childCount() { return state.persons.filter(p => p.type === 'child').length; }
+
+/* Суммарная норма семьи + персональные нормы */
+function targets() {
+  const g = GOALS.find(x => x.id === state.goal) || GOALS[1];
+  const per = state.persons.map(p => ({ person: p, t: personTargets(p) }));
+  const sum = { kcal: 0, protein: 0, fat: 0, carb: 0, fiber: 0 };
+  per.forEach(x => {
+    sum.kcal += x.t.kcal; sum.protein += x.t.protein;
+    sum.fat += x.t.fat; sum.carb += x.t.carb; sum.fiber += x.t.fiber;
+  });
+  return {
+    kcal: sum.kcal, protein: sum.protein, fat: sum.fat, carb: sum.carb, fiber: sum.fiber,
+    goal: g, per, people: per.length,
+  };
 }
 
 /* ---------- расчёты по рецептам ---------- */
@@ -304,11 +342,12 @@ function buildMenu(pool, lvl, seed, T) {
       /* Если блюда не закрывают белок, резервируем часть калорий под добор
          (примерно 6 ккал на грамм белка из творога, грудки, яиц) и слегка
          уменьшаем порции — так и норма белка закрыта, и калории не превышены. */
-      let scale = clamp(T.kcal / t.kc, 0.7, 1.7);
+      const N = Math.max(1, T.people);
+      let scale = clamp(T.kcal / t.kc, 0.6 * N, 2.0 * N);
       const prDeficit = T.protein - t.pr * scale;
       if (prDeficit > 0) {
         const reserve = Math.min(T.kcal * 0.42, prDeficit * kcalPerGramProtein());
-        scale = clamp((T.kcal - reserve) / t.kc, 0.7, 1.7);
+        scale = clamp((T.kcal - reserve) / t.kc, 0.6 * N, 2.0 * N);
       }
       const pr = t.pr * scale, fi = t.fi * scale, fa = t.fa * scale, cost = t.cost * scale;
 
@@ -323,7 +362,7 @@ function buildMenu(pool, lvl, seed, T) {
         need(pr, T.protein) * 140 + over(pr, T.protein * 1.4) * 25 +
         need(fi, T.fiber) * 90 + over(fi, T.fiber * 1.7) * 10 +
         over(fa, T.fat * 1.6) * 30 +
-        Math.abs(scale - 1) * 25 + meatPenalty +
+        Math.abs(scale / Math.max(1, T.people) - 1) * 25 + meatPenalty +
         (refCost > 0 ? over(cost, refCost) * 35 : 0);
 
       if (!best || score < best.score) best = { picked, scale, score, t };
@@ -353,11 +392,11 @@ function computeShopping(menu, extras) {
     day.meals.forEach(mm => {
       const r = RECIPE_BY_ID[mm.id];
       r.ing.forEach(([id, g]) => {
-        grams[id] = (grams[id] || 0) + g * PORTION * day.scale * state.people;
+        grams[id] = (grams[id] || 0) + g * PORTION * day.scale;
       });
     });
     (day.boost || []).forEach(b => {
-      grams[b.id] = (grams[b.id] || 0) + b.g * state.people;
+      grams[b.id] = (grams[b.id] || 0) + b.g;
     });
   });
 
@@ -427,8 +466,8 @@ function pickExtras(remaining, k) {
     .sort((a, b) => a.cost - b.cost);
   if (!cands.length) return [];
   const out = [];
-  const perItemCap = Math.max(2, Math.ceil(state.days * state.people / 10));
-  const maxPacks = Math.max(4, Math.round(state.days * state.people * 0.6));
+  const perItemCap = Math.max(2, Math.ceil(state.days * peopleCount() / 10));
+  const maxPacks = Math.max(4, Math.round(state.days * peopleCount() * 0.6));
   let left = remaining, guard = 0, i = 0, packsTotal = 0;
   while (left > 60 && packsTotal < maxPacks && guard < 600) {
     guard++;
@@ -515,8 +554,8 @@ function generatePlan(seed) {
     extras,
     settings: {
       goal: state.goal, dietStyle: state.dietStyle, cuisines: state.cuisines.slice(),
-      weight: state.weight, budget: state.budget, days: state.days,
-      people: state.people, mealsCount: state.mealsCount, store: state.store,
+      persons: JSON.parse(JSON.stringify(state.persons)), budget: state.budget, days: state.days,
+      mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded.slice(), veg: state.veg, noPork: state.noPork,
       staplesOwned: state.staplesOwned,
     },
@@ -552,17 +591,69 @@ function renderStats() {
     { b: money(p.shop.total), s: 'Стоимость корзины', c: p.shop.total <= state.budget ? 'green' : 'red' },
     { b: (diff >= 0 ? '+' : '−') + money(Math.abs(diff)), s: diff >= 0 ? 'Остаётся' : 'Не хватает', c: diff >= 0 ? 'green' : 'red' },
     { b: money(perDay), s: 'В день на семью' },
-    { b: money(perDay / state.people), s: 'В день на человека' },
+    { b: money(perDay / peopleCount()), s: 'В день на человека' },
     { b: p.targets.goal.icon + ' ' + p.targets.goal.name, s: p.targets.goal.short },
   ];
   $('#stats').innerHTML = stats.map(s =>
     `<div class="stat ${s.c || ''}"><b>${s.b}</b><span>${s.s}</span></div>`).join('');
 }
 
-/* блок КБЖУ: факт против нормы */
+/* Подпись состава семьи: «2 взрослых и 1 ребёнок» */
+function peopleLabel() {
+  const a = state.persons.filter(p => p.type === 'adult').length;
+  const c = childCount();
+  const parts = [];
+  if (a) parts.push(a + ' ' + plural(a, 'взрослый', 'взрослых', 'взрослых'));
+  if (c) parts.push(c + ' ' + plural(c, 'ребёнок', 'ребёнка', 'детей'));
+  return parts.join(' и ') || 'никого';
+}
+
+function personName(p, i) {
+  if (p.type === 'child') {
+    const kids = state.persons.filter(x => x.type === 'child');
+    const n = kids.indexOf(p) + 1;
+    return 'Ребёнок' + (kids.length > 1 ? ' ' + n : '') + (p.age ? ', ' + p.age + ' ' + plural(p.age, 'год', 'года', 'лет') : '');
+  }
+  const ad = state.persons.filter(x => x.type === 'adult');
+  const n = ad.indexOf(p) + 1;
+  return 'Взрослый' + (ad.length > 1 ? ' ' + n : '') + (p.weight ? ', ' + p.weight + ' кг' : '');
+}
+
+/* Блок КБЖУ: сначала разбивка по едокам, затем итог по семье */
 function renderMacros() {
   const p = state.plan;
   const T = p.targets, M = p.macros;
+
+  /* Еда делится между едоками по каждому нутриенту отдельно: калории — по норме
+     калорий, белок — по норме белка. Иначе взрослому на диете, которому нужно
+     много белка при малых калориях, доставалось бы слишком мало. */
+  const share = (val, total) => (total > 0 ? val / total : 1 / Math.max(1, T.people));
+  const persons = (T.per || []).map((x, i) => {
+    const fact = {
+      kc: M.kc * share(x.t.kcal, T.kcal),
+      pr: M.pr * share(x.t.protein, T.protein),
+      fa: M.fa * share(x.t.fat, T.fat),
+      ca: M.ca * share(x.t.carb, T.carb),
+      fi: M.fi * share(x.t.fiber, T.fiber),
+    };
+    const prPct = fact.pr / x.t.protein, fiPct = fact.fi / x.t.fiber;
+    const okAll = prPct >= 0.9 && fiPct >= 0.9;
+    return `<div class="person-macro${x.t.isChild ? ' is-child' : ''}">
+      <div class="pm-head">
+        <b>${x.t.isChild ? '🧒' : '🧑'} ${personName(x.person, i)}</b>
+        <span>${x.t.isChild ? 'нормы по возрасту' : 'цель «' + T.goal.name.toLowerCase() + '»'}</span>
+      </div>
+      <div class="pm-rows">
+        <div><i>Калории</i><b>${num(fact.kc)}</b><em>из ${num(x.t.kcal)}</em></div>
+        <div><i>Белки</i><b class="${prPct >= 0.9 ? 'ok' : 'low'}">${num(fact.pr)} г</b><em>из ${num(x.t.protein)} г</em></div>
+        <div><i>Жиры</i><b>${num(fact.fa)} г</b><em>из ${num(x.t.fat)} г</em></div>
+        <div><i>Углеводы</i><b>${num(fact.ca)} г</b><em>из ${num(x.t.carb)} г</em></div>
+        <div><i>Клетчатка</i><b class="${fiPct >= 0.9 ? 'ok' : 'low'}">${num(fact.fi)} г</b><em>из ${num(x.t.fiber)} г</em></div>
+      </div>
+      ${okAll ? '' : '<div class="pm-warn">Белок или клетчатка ниже нормы</div>'}
+    </div>`;
+  }).join('');
+
   const rows = [
     { key: 'kc', name: 'Калории', unit: 'ккал', fact: M.kc, target: T.kcal, hard: true },
     { key: 'pr', name: 'Белки', unit: 'г', fact: M.pr, target: T.protein, hard: true },
@@ -593,14 +684,23 @@ function renderMacros() {
     verdict = `<span class="low">⚠ Не хватает ${miss.join(' и ')}</span> — из доступных при ваших ограничениях и бюджете продуктов больше не набирается. Поднимите бюджет или снимите часть исключений.`;
   }
 
+  const kidNote = childCount()
+    ? `<div class="macro-kids">🧒 Детские нормы считаются по возрасту, а не по цели взрослых:
+       даже в режиме «Диетическое» ребёнку рассчитывается полноценный рацион для роста.</div>`
+    : '';
+
   $('#macros').innerHTML = `
     <div class="macro-head">
       <div>
-        <h3>КБЖУ на человека в день</h3>
-        <p>Норма для веса ${state.weight} кг и цели «${T.goal.name}»: ${num(T.kcal)} ккал, ${num(T.protein)} г белка, ${num(T.fiber)} г клетчатки.</p>
+        <h3>КБЖУ по едокам</h3>
+        <p>Еда распределяется пропорционально норме каждого: ${peopleLabel()}.
+        Итого на семью в день — ${num(T.kcal)} ккал, ${num(T.protein)} г белка, ${num(T.fiber)} г клетчатки.</p>
       </div>
-      <div class="macro-portion">Порции блюд: <b>×${(p.avgScale).toFixed(2)}</b><span>от базовой</span></div>
+      <div class="macro-portion">Порции блюд: <b>×${(p.avgScale / Math.max(1, T.people)).toFixed(2)}</b><span>на человека</span></div>
     </div>
+    <div class="person-macros">${persons}</div>
+    ${kidNote}
+    <h4 class="macro-sub">Итого на всю семью за день</h4>
     <div class="macro-grid">${bars}</div>
     <div class="macro-verdict">${verdict}</div>`;
 }
@@ -616,7 +716,7 @@ function renderNotice() {
   if (diff < 0) {
     el.className = 'notice warn';
     el.innerHTML = p.status === 'low'
-      ? `<b>Бюджета не хватает.</b> Меню собрано из самых дешёвых блюд, но минимум для цели «${p.targets.goal.name.toLowerCase()}» на ${state.days} дн. для ${state.people} чел. — <b>${money(p.minTotal)}</b>. Не хватает ${money(-diff)}.${extraWarn}`
+      ? `<b>Бюджета не хватает.</b> Меню собрано из самых дешёвых блюд, но минимум для цели «${p.targets.goal.name.toLowerCase()}» на ${state.days} дн. для ${peopleCount()} чел. — <b>${money(p.minTotal)}</b>. Не хватает ${money(-diff)}.${extraWarn}`
       : `<b>Корзина вышла за бюджет на ${money(-diff)}</b> — так бывает после ручной замены блюд. Верните блюдо подешевле или нажмите «Пересобрать».${extraWarn}`;
   } else if (p.status === 'high') {
     el.className = 'notice ok';
@@ -635,7 +735,7 @@ function renderMenu() {
 
   $('#panel-menu').innerHTML = weeks.map((w, wi) => {
     let wCost = 0;
-    w.forEach(d => { wCost += dayMacros(d).cost * state.people; });
+    w.forEach(d => { wCost += dayMacros(d).cost; });
     const days = w.map(day => {
       const dt = dateFor(day.day, p.startDate);
       const dm = dayMacros(day);
@@ -654,7 +754,7 @@ function renderMenu() {
             <div class="meal-body">
               <div class="meal-type">${info.name}</div>
               <div class="meal-name" data-recipe="${r.id}">${r.n}</div>
-              <div class="meal-meta">${num(mac.kc * day.scale)} ккал · Б ${num(mac.pr * day.scale)} г · ${money(recipeCost(r, storeK(state.store)) * day.scale * state.people)}</div>
+              <div class="meal-meta">${num(mac.kc * day.scale)} ккал · Б ${num(mac.pr * day.scale)} г · ${money(recipeCost(r, storeK(state.store)) * day.scale)}</div>
             </div>
             <button class="meal-swap" title="Заменить блюдо" data-swap="${day.day}:${m.type}">⇄</button>
           </div>`;
@@ -728,7 +828,7 @@ function renderRecipesTab() {
         <div class="rec-meta">
           <span>${MEALS.find(m => m.id === x.r.m).icon} ${MEALS.find(m => m.id === x.r.m).name}</span>
           <span>⏱ ${x.r.t} мин</span>
-          <span><b>${money(x.cost * p.avgScale * state.people)}</b> за подачу</span>
+          <span><b>${money(x.cost * p.avgScale)}</b> за подачу</span>
         </div>
         <div class="rec-macro">
           <span>${num(x.mac.kc * p.avgScale)} ккал</span>
@@ -757,7 +857,7 @@ function openRecipe(id) {
     <div class="m-meta">
       <span>${info.icon} ${info.name}</span>
       <span>⏱ ${r.t} мин</span>
-      <span>💸 ${money(recipeCost(r, k) * scale * state.people)} на ${state.people} ${plural(state.people, 'человека', 'человек', 'человек')}</span>
+      <span>💸 ${money(recipeCost(r, k) * scale)} на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')}</span>
     </div>
     <div class="m-macro">
       <div><b>${num(mac.kc * scale)}</b><span>ккал</span></div>
@@ -766,10 +866,10 @@ function openRecipe(id) {
       <div><b>${num(mac.ca * scale)} г</b><span>углеводы</span></div>
       <div><b>${num(mac.fi * scale)} г</b><span>клетчатка</span></div>
     </div>
-    <div class="m-sec">Продукты на ${state.people} ${plural(state.people, 'человека', 'человек', 'человек')}${scale !== 1 ? ' (порции под вашу норму калорий)' : ''}</div>
+    <div class="m-sec">Продукты на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')} — порции под ваши нормы КБЖУ</div>
     ${r.ing.map(([pid, g]) => {
       const p = PRODUCT_BY_ID[pid];
-      const total = g * PORTION * scale * state.people;
+      const total = g * PORTION * scale;
       return `<div class="m-ing"><span>${p.n}</span><span>${total >= 1000 ? kgLabel(total / 1000) : Math.round(total) + ' г'}</span></div>`;
     }).join('')}
     <div class="m-sec">Приготовление</div>
@@ -830,7 +930,7 @@ function renderAll() {
   $('#resultSub').textContent =
     `${p.targets.goal.name} · ${DIET_STYLES.find(s => s.id === state.dietStyle).name.toLowerCase()} · ` +
     `${state.cuisines.length ? state.cuisines.map(c => CUISINES.find(x => x.id === c).name.toLowerCase()).join(', ') : 'все кухни'} · ` +
-    `${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${state.people} ${plural(state.people, 'человек', 'человека', 'человек')} · ` +
+    `${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${peopleLabel()} · ` +
     `${state.mealsCount} ${plural(state.mealsCount, 'приём', 'приёма', 'приёмов')} пищи · «${STORES.find(s => s.id === state.store).name}»` +
     (state.excluded.length ? ` · без: ${state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')}` : '');
   renderNotice();
@@ -889,12 +989,6 @@ function initForm() {
     saveSettings();
   }));
 
-  $('#weight').addEventListener('input', () => {
-    state.weight = clamp(parseInt($('#weight').value, 10) || 70, 30, 200);
-    updateGoalNumbers();
-    saveSettings();
-  });
-
   /* магазины */
   $('#storeList').innerHTML = STORES.map(s => `
     <button type="button" class="store ${s.id === state.store ? 'active' : ''}" data-store="${s.id}">
@@ -943,15 +1037,84 @@ function initForm() {
     saveSettings();
   }));
 
-  const upd = () => { $('#peopleValue').textContent = state.people; saveSettings(); };
-  $('#peopleMinus').addEventListener('click', () => { state.people = Math.max(1, state.people - 1); upd(); });
-  $('#peoplePlus').addEventListener('click', () => { state.people = Math.min(8, state.people + 1); upd(); });
+  $('#addAdult').addEventListener('click', () => {
+    if (state.persons.length >= 10) return;
+    state.persons.push({ type: 'adult', weight: 70 });
+    renderPersons(); saveSettings();
+  });
+  $('#addChild').addEventListener('click', () => {
+    if (state.persons.length >= 10) return;
+    state.persons.push({ type: 'child', weight: 25, age: 7 });
+    renderPersons(); saveSettings();
+  });
 
   $('#optVeg').addEventListener('change', e => { state.veg = e.target.checked; saveSettings(); });
   $('#optNoPork').addEventListener('change', e => { state.noPork = e.target.checked; saveSettings(); });
   $('#optStaples').addEventListener('change', e => { state.staplesOwned = e.target.checked; saveSettings(); });
 
   $('#planForm').addEventListener('submit', e => { e.preventDefault(); run(); });
+}
+
+/* ---------- список едоков ---------- */
+function renderPersons() {
+  const html = state.persons.map((p, i) => {
+    const t = personTargets(p);
+    const isChild = p.type === 'child';
+    return `<div class="person${isChild ? ' person-child' : ''}" data-i="${i}">
+      <div class="person-top">
+        <span class="person-ic">${isChild ? '🧒' : '🧑'}</span>
+        <div class="person-title">
+          <b>${isChild ? 'Ребёнок' : 'Взрослый'}</b>
+          <span>${num(t.kcal)} ккал · ${num(t.protein)} г белка${isChild ? ' · ' + t.ageLabel : ''}</span>
+        </div>
+        ${state.persons.length > 1
+          ? `<button type="button" class="person-del" data-del="${i}" title="Убрать" aria-label="Убрать">×</button>`
+          : ''}
+      </div>
+      <div class="person-fields">
+        <label>
+          <span>Вес</span>
+          <div class="input-unit">
+            <input type="number" min="${isChild ? 8 : 30}" max="${isChild ? 120 : 200}" step="1"
+                   value="${p.weight}" data-field="weight" data-i="${i}" inputmode="numeric"><span>кг</span>
+          </div>
+        </label>
+        ${isChild ? `<label>
+          <span>Возраст</span>
+          <div class="input-unit">
+            <input type="number" min="1" max="17" step="1" value="${p.age}"
+                   data-field="age" data-i="${i}" inputmode="numeric"><span>лет</span>
+          </div>
+        </label>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  $('#personList').innerHTML = html;
+
+  $$('#personList [data-del]').forEach(b => b.addEventListener('click', () => {
+    state.persons.splice(+b.dataset.del, 1);
+    renderPersons(); saveSettings();
+  }));
+
+  $$('#personList input[data-field]').forEach(inp => inp.addEventListener('input', () => {
+    const i = +inp.dataset.i, f = inp.dataset.field;
+    const p = state.persons[i];
+    if (!p) return;
+    const v = parseInt(inp.value, 10);
+    if (isNaN(v)) return;
+    if (f === 'weight') p.weight = clamp(v, p.type === 'child' ? 8 : 30, p.type === 'child' ? 120 : 200);
+    if (f === 'age') p.age = clamp(v, 1, 17);
+    /* подпись с нормой обновляем без перерисовки поля, чтобы не сбить курсор */
+    const card = inp.closest('.person');
+    const t = personTargets(p);
+    card.querySelector('.person-title span').textContent =
+      num(t.kcal) + ' ккал · ' + num(t.protein) + ' г белка' + (p.type === 'child' ? ' · ' + t.ageLabel : '');
+    saveSettings();
+  }));
+
+  $('#kidsNote').hidden = !childCount();
+  $('#peopleSummary').textContent = peopleLabel();
 }
 
 function syncCuisineChips() {
@@ -977,22 +1140,23 @@ function updateStyleCounts() {
 /* подписи с нормой под каждой целью */
 function updateGoalNumbers() {
   const save = state.goal;
+  const adult = state.persons.find(p => p.type === 'adult') || { type: 'adult', weight: 70 };
   GOALS.forEach(g => {
     state.goal = g.id;
-    const T = targets();
+    const t = personTargets(adult);
     const el = $(`[data-goalnum="${g.id}"]`);
-    if (el) el.textContent = `${num(T.kcal)} ккал · ${num(T.protein)} г белка · ${num(T.fiber)} г клетчатки`;
+    if (el) el.textContent = `${num(t.kcal)} ккал · ${num(t.protein)} г белка · ${num(t.fiber)} г клетчатки` +
+      ` · для взрослого ${adult.weight} кг`;
   });
   state.goal = save;
 }
 
 function applySettingsToForm() {
   $('#budget').value = state.budget;
-  $('#weight').value = state.weight;
   $$('#budgetChips .chip').forEach(c => c.classList.toggle('active', +c.dataset.budget === state.budget));
   $$('#periodChips .chip').forEach(c => c.classList.toggle('active', +c.dataset.days === state.days));
   $$('#mealsChips .chip').forEach(c => c.classList.toggle('active', +c.dataset.meals === state.mealsCount));
-  $('#peopleValue').textContent = state.people;
+  renderPersons();
   $$('#goalList .goal').forEach(b => b.classList.toggle('active', b.dataset.goal === state.goal));
   $$('#styleList .style').forEach(b => b.classList.toggle('active', b.dataset.style === state.dietStyle));
   syncCuisineChips();
@@ -1082,7 +1246,7 @@ function shoppingText() {
   const p = state.plan;
   const store = STORES.find(s => s.id === state.store).name;
   let out = `СПИСОК ПОКУПОК — ${store}\n`;
-  out += `${p.targets.goal.name} · ${state.days} дн. · ${state.people} чел. · бюджет ${money(state.budget)}\n`;
+  out += `${p.targets.goal.name} · ${state.days} дн. · ${peopleLabel()} · бюджет ${money(state.budget)}\n`;
   out += `Норма: ${num(p.targets.kcal)} ккал, ${num(p.targets.protein)} г белка, ${num(p.targets.fiber)} г клетчатки в день\n`;
   out += `Факт: ${num(p.macros.kc)} ккал, ${num(p.macros.pr)} г белка, ${num(p.macros.fi)} г клетчатки\n`;
   out += `Итого: ${money(p.shop.total)}\n\n`;
@@ -1157,7 +1321,7 @@ function updateBudgetHint() {
     const shop = computeShopping(buildMenu(pool, 0, 20260904, T));
     el.innerHTML = `Это вся сумма на весь период, а не в день. Чтобы закрыть норму КБЖУ для цели ` +
       `«${T.goal.name.toLowerCase()}» на ${state.days} ${plural(state.days, 'день', 'дня', 'дней')} ` +
-      `для ${state.people} ${plural(state.people, 'человека', 'человек', 'человек')}, ` +
+      `для ${peopleLabel()}, ` +
       `нужно минимум около <b>${money(shop.total)}</b>.`;
   } catch (e) {
     el.innerHTML = 'Это вся сумма на выбранный период, а не в день.';
@@ -1205,17 +1369,36 @@ function saveSettings() {
   try {
     localStorage.setItem(LS_SET, JSON.stringify({
       goal: state.goal, dietStyle: state.dietStyle, cuisines: state.cuisines,
-      weight: state.weight, budget: state.budget, days: state.days,
-      people: state.people, mealsCount: state.mealsCount, store: state.store,
+      persons: state.persons, budget: state.budget, days: state.days,
+      mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded, veg: state.veg, noPork: state.noPork,
       staplesOwned: state.staplesOwned,
     }));
   } catch (e) { /* приватный режим */ }
 }
+function migratePersons(obj) {
+  /* старый формат: people — число, weight — общий вес */
+  if (obj && !Array.isArray(obj.persons) && typeof obj.people === 'number') {
+    const w = typeof obj.weight === 'number' ? obj.weight : 70;
+    obj.persons = [];
+    for (let i = 0; i < Math.max(1, obj.people); i++) obj.persons.push({ type: 'adult', weight: w });
+  }
+  if (obj && Array.isArray(obj.persons)) {
+    obj.persons = obj.persons
+      .filter(p => p && (p.type === 'adult' || p.type === 'child'))
+      .map(p => p.type === 'child'
+        ? { type: 'child', weight: p.weight || 25, age: p.age || 7 }
+        : { type: 'adult', weight: p.weight || 70 });
+    if (!obj.persons.length) obj.persons = [{ type: 'adult', weight: 70 }];
+  }
+  delete obj.people; delete obj.weight;
+  return obj;
+}
+
 function loadSettings() {
   try {
     const raw = localStorage.getItem(LS_SET);
-    if (raw) Object.assign(state, JSON.parse(raw));
+    if (raw) Object.assign(state, migratePersons(JSON.parse(raw)));
   } catch (e) { /* игнор */ }
 }
 function savePlan() {
@@ -1227,7 +1410,7 @@ function loadPlan() {
     if (!raw) return;
     const p = JSON.parse(raw);
     if (!p || !p.menu || !p.targets) return;
-    Object.assign(state, p.settings || {});
+    Object.assign(state, migratePersons(p.settings || {}));
     state.plan = p;
     recalcPlan();           /* вдруг обновились цены в data.js */
     $('#result').hidden = false;

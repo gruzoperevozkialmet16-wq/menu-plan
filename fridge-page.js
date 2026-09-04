@@ -1,7 +1,120 @@
 /* ============================================================
-   МЕНЮ-ПЛАН — «Что приготовить из остатков»
+   ХОЛОДИЛЬНИК — отдельная страница
    Отмечаем, что есть дома, и ищем блюда с максимальным покрытием.
+   Страница автономна: нужны только data.js, products2.js и файлы
+   рецептов. Настройки (аллергии, вегетарианство) читаются из тех же
+   ключей localStorage, что использует планировщик на главной.
    ============================================================ */
+
+/* ---------- утилиты ---------- */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+function money(v) { return Math.round(v).toLocaleString('ru-RU') + ' ₽'; }
+function num(v) { return Math.round(v).toLocaleString('ru-RU'); }
+function kgLabel(kg) { return kg >= 1 ? (Math.round(kg * 100) / 100).toString().replace('.', ',') + ' кг' : Math.round(kg * 1000) + ' г'; }
+function storeK(id) { const s = STORES.find(x => x.id === id); return s ? s.k : 1; }
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+
+/* ---------- настройки, общие с планировщиком ---------- */
+const state = {
+  store: 'p5', excluded: [], veg: false, noPork: false,
+  persons: [{ type: 'adult', weight: 70 }, { type: 'adult', weight: 70 }],
+};
+try {
+  const raw = localStorage.getItem('menuplan_settings_v2');
+  if (raw) {
+    const d = JSON.parse(raw);
+    if (d.store) state.store = d.store;
+    if (Array.isArray(d.excluded)) state.excluded = d.excluded;
+    state.veg = !!d.veg;
+    state.noPork = !!d.noPork;
+    if (Array.isArray(d.persons) && d.persons.length) state.persons = d.persons;
+    else if (typeof d.people === 'number') {
+      state.persons = [];
+      for (let i = 0; i < Math.max(1, d.people); i++) state.persons.push({ type: 'adult', weight: d.weight || 70 });
+    }
+  }
+} catch (e) { /* приватный режим */ }
+
+function peopleCount() { return state.persons.length; }
+
+/* ---------- расчёты по рецептам ---------- */
+const RECIPE_BY_ID = {};
+RECIPES.forEach(r => { RECIPE_BY_ID[r.id] = r; });
+
+function recipeAllergens(r) {
+  const set = {};
+  r.ing.forEach(([id]) => (PRODUCT_BY_ID[id].a || []).forEach(a => { set[a] = 1; }));
+  return Object.keys(set);
+}
+function recipeMacro(r) {
+  let kc = 0, pr = 0, fa = 0, ca = 0, fi = 0;
+  r.ing.forEach(([id, g]) => {
+    const p = PRODUCT_BY_ID[id], q = g * PORTION / 100;
+    kc += q * p.kc; pr += q * p.pr; fa += q * p.fa; ca += q * p.ca; fi += q * p.fi;
+  });
+  return { kc, pr, fa, ca, fi };
+}
+function recipeCost(r, k) {
+  let sum = 0;
+  r.ing.forEach(([id, g]) => { sum += (g * PORTION / 1000) * PRODUCT_BY_ID[id].price * k; });
+  return sum;
+}
+function recipeHas(r, ids) { return r.ing.some(([id]) => ids.indexOf(id) !== -1); }
+
+/* ---------- модалка рецепта ---------- */
+function openRecipe(id) {
+  const r = RECIPE_BY_ID[id];
+  if (!r) return;
+  const k = storeK(state.store);
+  const info = MEALS.find(m => m.id === r.m);
+  const al = recipeAllergens(r);
+  const mac = recipeMacro(r);
+  const n = peopleCount();
+  $('#modalContent').innerHTML = `
+    <div class="m-photo" style="background:${dishGradient(r)}"><span>${dishEmoji(r)}</span><i>${info.name}</i></div>
+    <h3>${r.n}</h3>
+    <div class="m-meta">
+      <span>${info.icon} ${info.name}</span>
+      <span>⏱ ${r.t} мин</span>
+      <span>💸 ${money(recipeCost(r, k) * n)} на ${n} ${plural(n, 'человека', 'человек', 'человек')}</span>
+    </div>
+    <div class="m-macro">
+      <div><b>${num(mac.kc)}</b><span>ккал</span></div>
+      <div><b>${num(mac.pr)} г</b><span>белки</span></div>
+      <div><b>${num(mac.fa)} г</b><span>жиры</span></div>
+      <div><b>${num(mac.ca)} г</b><span>углеводы</span></div>
+      <div><b>${num(mac.fi)} г</b><span>клетчатка</span></div>
+    </div>
+    <div class="m-sec">Продукты на ${n} ${plural(n, 'человека', 'человек', 'человек')}</div>
+    ${r.ing.map(([pid, g]) => {
+      const p = PRODUCT_BY_ID[pid];
+      const total = g * PORTION * n;
+      return `<div class="m-ing"><span>${p.n}</span><span>${total >= 1000 ? kgLabel(total / 1000) : Math.round(total) + ' г'}</span></div>`;
+    }).join('')}
+    <div class="m-sec">Приготовление</div>
+    <ol class="m-steps">${r.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    ${al.length ? `<div class="m-sec">Содержит</div><div class="cr-tags">${al.map(a => {
+      const A = ALLERGENS.find(x => x.id === a);
+      return `<span class="cr-tag">${A.icon} ${A.name}</span>`;
+    }).join('')}</div>` : ''}`;
+  $('#modal').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
+
+document.addEventListener('click', e => {
+  const rec = e.target.closest('[data-recipe]');
+  if (rec) { openRecipe(rec.dataset.recipe); return; }
+  if (e.target.closest('[data-close]')) closeModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 const fridge = {
   have: [],          /* id продуктов, которые есть дома */
@@ -32,6 +145,7 @@ function fridgeToggle(id, on) {
   fridgeSave();
   renderFridgeSelected();
   syncFridgeChecks();
+  updateHaveCount();
 }
 
 /* ---------- выбранные продукты ---------- */
@@ -119,7 +233,7 @@ function fridgeMatch() {
     let buyCost = 0;
     const buyList = missing.map(([id, g]) => {
       const p = PRODUCT_BY_ID[id];
-      const packs = Math.max(1, Math.ceil(g * PORTION * state.people / 1000 / p.pack - 0.001));
+      const packs = Math.max(1, Math.ceil(g * PORTION * peopleCount() / 1000 / p.pack - 0.001));
       const cost = packs * p.pack * p.price * k;
       buyCost += cost;
       return { p, packs, cost };
@@ -198,9 +312,26 @@ function renderFridgeResult() {
   box.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/* ---------- сводка активных ограничений ---------- */
+function renderLimits() {
+  const parts = [];
+  state.excluded.forEach(id => {
+    const a = ALLERGENS.find(x => x.id === id);
+    if (a) parts.push(a.icon + ' без ' + a.name.toLowerCase());
+  });
+  if (state.veg) parts.push('🌿 вегетарианское');
+  if (state.noPork) parts.push('🚫 без свинины');
+  const el = $('#fridgeLimits');
+  if (!el) return;
+  el.innerHTML = parts.length
+    ? `Учитываются ваши ограничения из планировщика: <b>${parts.join(', ')}</b>. <a href="./#planner">Изменить</a>`
+    : `Ограничений нет — показываем все блюда. Аллергии задаются <a href="./#planner">в планировщике</a>.`;
+}
+
 /* ---------- инициализация ---------- */
 (function initFridge() {
   fridgeLoad();
+  renderLimits();
   renderFridgeAll();
   renderFridgeSelected();
   $('#fridgeStaples').checked = fridge.staples;
@@ -229,6 +360,7 @@ function renderFridgeResult() {
     fridgeSave();
     renderFridgeSelected();
     syncFridgeChecks();
+    updateHaveCount();
     $('#fridgeResult').innerHTML = '';
   });
 
@@ -238,4 +370,13 @@ function renderFridgeResult() {
   });
 
   $('#fridgeBtn').addEventListener('click', renderFridgeResult);
+
+  if ($('#statRecipes')) $('#statRecipes').textContent = RECIPES.length;
+  if ($('#statProducts')) $('#statProducts').textContent = PRODUCTS.length;
+  updateHaveCount();
 })();
+
+function updateHaveCount() {
+  const el = $('#statHave');
+  if (el) el.textContent = fridge.have.length;
+}

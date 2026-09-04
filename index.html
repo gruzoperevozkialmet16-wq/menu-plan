@@ -21,9 +21,9 @@
       <span class="logo-text">Меню<span>-План</span></span>
     </a>
     <nav class="header-nav">
-      <a href="about.html">Информация</a>
-      <a href="#fridge">Что есть дома</a>
+      <a href="fridge.html">Холодильник</a>
       <a href="catalog.html">Каталог и цены</a>
+      <a href="about.html">Информация</a>
       <a class="btn btn-sm btn-primary" href="#planner">Составить меню</a>
     </nav>
   </div>
@@ -63,42 +63,6 @@
     </div>
   </section>
 
-  <!-- ================= ХОЛОДИЛЬНИК ================= -->
-  <section id="fridge" class="fridge">
-    <div class="wrap">
-      <span class="eyebrow">Ничего не пропадёт</span>
-      <h2 class="section-title">Что приготовить из остатков</h2>
-      <p class="section-sub">
-        Отметьте, что лежит в холодильнике и в шкафу. Сервис найдёт блюда, которые можно
-        сделать прямо сейчас, и подскажет, где не хватает одного-двух продуктов.
-      </p>
-
-      <div class="fridge-card reveal">
-        <div class="fridge-search">
-          <input type="search" id="fridgeSearch" placeholder="Начните вводить: курица, яйца, гречка…">
-          <button type="button" class="btn btn-ghost btn-sm" id="fridgeClear">Очистить всё</button>
-        </div>
-        <div id="fridgeSuggest" class="fridge-suggest" hidden></div>
-
-        <div class="fridge-selected" id="fridgeSelected"></div>
-
-        <details class="fridge-all">
-          <summary>Показать весь список продуктов</summary>
-          <div id="fridgeAll"></div>
-        </details>
-
-        <label class="switch fridge-switch">
-          <input type="checkbox" id="fridgeStaples" checked><span class="slider"></span>
-          <em>Соль, специи, масло, мука есть<small>не считать их недостающими</small></em>
-        </label>
-
-        <button type="button" class="btn btn-primary btn-xl btn-block" id="fridgeBtn">Найти блюда</button>
-      </div>
-
-      <div id="fridgeResult"></div>
-    </div>
-  </section>
-
   <!-- ================= ПЛАНИРОВЩИК ================= -->
   <section id="planner" class="planner">
     <div class="wrap">
@@ -113,11 +77,6 @@
           <label class="field-label"><span class="num">1</span> Цель питания</label>
           <p class="hint">От цели зависят калорийность, норма белка и размер порций.</p>
           <div class="goals" id="goalList"></div>
-          <div class="weight-row">
-            <label for="weight">Средний вес человека</label>
-            <div class="input-unit"><input type="number" id="weight" min="30" max="200" step="1" value="70" inputmode="numeric"><span>кг</span></div>
-            <span class="hint">Нужен для расчёта нормы калорий и белка</span>
-          </div>
         </div>
 
         <!-- 2. Стиль питания -->
@@ -167,11 +126,29 @@
         <!-- 4-5. Люди и приёмы пищи -->
         <div class="field-grid">
           <div class="field">
-            <label class="field-label"><span class="num">6</span> Сколько человек</label>
-            <div class="stepper">
-              <button type="button" id="peopleMinus" aria-label="Меньше">−</button>
-              <div class="stepper-value"><b id="peopleValue">2</b><span>чел.</span></div>
-              <button type="button" id="peoplePlus" aria-label="Больше">+</button>
+            <label class="field-label"><span class="num">6</span> Кто будет есть</label>
+            <p class="hint">Норма считается для каждого отдельно: у взрослых — от веса и цели, у детей — от возраста. Итого: <b id="peopleSummary">2 взрослых</b>.</p>
+            <div class="persons" id="personList"></div>
+            <div class="person-add">
+              <button type="button" class="btn btn-ghost btn-sm" id="addAdult">＋ Взрослый</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="addChild">＋ Ребёнок</button>
+            </div>
+            <div class="kids-note" id="kidsNote" hidden>
+              <span class="kids-note-ic">🧒</span>
+              <div>
+                <b>Правильное питание для детей — это главное</b>
+                <p>Ребёнку не назначают дефицит калорий: он растёт, и еда для него — строительный
+                материал, а не способ похудеть. Поэтому детские нормы здесь считаются по возрасту
+                и не зависят от того, худеет ли взрослый рядом.</p>
+                <ul>
+                  <li><b>Белок каждый день</b> — мясо, рыба, яйца, творог: без него не растут мышцы и не формируется иммунитет.</li>
+                  <li><b>Овощи и фрукты в каждый приём</b> — клетчатка нужна по правилу «возраст + 5 граммов» в сутки.</li>
+                  <li><b>Режим важнее калорий</b> — 4–5 приёмов пищи в одно и то же время держат аппетит ровным.</li>
+                  <li><b>Меньше сахара и колбас</b> — включите стиль «Правильное питание», и они уйдут из меню.</li>
+                </ul>
+                <p class="kids-note-doc">При аллергии, лишнем или недостаточном весе, хронических
+                болезнях рацион ребёнка согласуют с педиатром — калькулятор его не заменяет.</p>
+              </div>
             </div>
           </div>
           <div class="field">
@@ -294,7 +271,7 @@
     <div class="footer-links">
       <a href="#planner">Составить меню</a>
       <a href="about.html">Информация</a>
-      <a href="#fridge">Что есть дома</a>
+      <a href="fridge.html">Холодильник</a>
       <a href="catalog.html">Каталог и цены</a>
     </div>
   </div>
@@ -324,6 +301,5 @@
 <script src="recipes-fit.js"></script>
 <script src="recipes-lean.js"></script>
 <script src="app.js"></script>
-<script src="fridge.js"></script>
 </body>
 </html>
