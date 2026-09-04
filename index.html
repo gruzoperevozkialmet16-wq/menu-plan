@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Меню-План — рецепты и список покупок под ваш бюджет</title>
+<meta name="description" content="Укажите бюджет, аллергии и магазин — сервис составит меню на неделю, месяц или два и посчитает список покупок по ценам Пятёрочки, Магнита и Ленты.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="logo" href="./">
+      <span class="logo-mark">🥗</span>
+      <span class="logo-text">Меню<span>-План</span></span>
+    </a>
+    <nav class="header-nav">
+      <a href="#how">Как это работает</a>
+      <a href="#catalog-info">Каталог и цены</a>
+      <a class="btn btn-sm btn-primary" href="#planner">Составить меню</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-text">
+        <div class="badge">Каталог «Пятёрочки» и ещё 4 сети · цены <span id="priceDate"></span></div>
+        <h1>Меню и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
+        <p class="lead">
+          Введите сумму, отметьте аллергии и выберите магазин — сервис соберёт рецепты
+          на неделю, месяц или два месяца, посчитает граммовки и выдаст готовый список
+          покупок с ценами. Ни одного продукта, на который у вас аллергия.
+        </p>
+        <div class="hero-stats">
+          <div><b id="statProducts">0</b><span>продуктов в каталоге</span></div>
+          <div><b id="statRecipes">0</b><span>рецептов</span></div>
+          <div><b id="statAllerg">0</b><span>групп аллергенов</span></div>
+        </div>
+        <a class="btn btn-primary btn-lg" href="#planner">Составить меню за 30 секунд</a>
+      </div>
+      <div class="hero-card" aria-hidden="true">
+        <div class="hc-row hc-head"><span>Список покупок</span><b>7 дней · 2 чел.</b></div>
+        <div class="hc-row"><span>🍗 Бёдра куриные, 2 кг</span><b>518 ₽</b></div>
+        <div class="hc-row"><span>🥔 Картофель, 5 кг</span><b>225 ₽</b></div>
+        <div class="hc-row"><span>🥛 Молоко, 4 л</span><b>356 ₽</b></div>
+        <div class="hc-row"><span>🍚 Гречка, 1,6 кг</span><b>216 ₽</b></div>
+        <div class="hc-row"><span>🥕 Морковь, 2 кг</span><b>110 ₽</b></div>
+        <div class="hc-row hc-more">+ 23 позиции</div>
+        <div class="hc-row hc-total"><span>Итого</span><b>6 842 ₽</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ПЛАНИРОВЩИК ================= -->
+  <section id="planner" class="planner">
+    <div class="wrap">
+      <h2 class="section-title">Настройте план</h2>
+      <p class="section-sub">Все поля влияют на результат. Ничего не отправляется — расчёт идёт прямо в браузере.</p>
+
+      <form class="form-card" id="planForm" autocomplete="off">
+
+        <!-- 1. Бюджет -->
+        <div class="field">
+          <label class="field-label"><span class="num">1</span> Бюджет на продукты</label>
+          <div class="budget-row">
+            <div class="input-money">
+              <input type="number" id="budget" min="500" step="100" value="7000" inputmode="numeric">
+              <span>₽</span>
+            </div>
+            <div class="chips" id="budgetChips">
+              <button type="button" class="chip" data-budget="3000">3 000</button>
+              <button type="button" class="chip" data-budget="7000">7 000</button>
+              <button type="button" class="chip" data-budget="15000">15 000</button>
+              <button type="button" class="chip" data-budget="30000">30 000</button>
+              <button type="button" class="chip" data-budget="50000">50 000</button>
+            </div>
+          </div>
+          <p class="hint" id="budgetHint">Это вся сумма на выбранный период, а не в день.</p>
+        </div>
+
+        <!-- 2. Период -->
+        <div class="field">
+          <label class="field-label"><span class="num">2</span> На какой срок</label>
+          <div class="chips chips-lg" id="periodChips">
+            <button type="button" class="chip active" data-days="7">Неделя<small>7 дней</small></button>
+            <button type="button" class="chip" data-days="14">2 недели<small>14 дней</small></button>
+            <button type="button" class="chip" data-days="30">Месяц<small>30 дней</small></button>
+            <button type="button" class="chip" data-days="60">2 месяца<small>60 дней</small></button>
+          </div>
+        </div>
+
+        <!-- 3. Люди и приёмы пищи -->
+        <div class="field-grid">
+          <div class="field">
+            <label class="field-label"><span class="num">3</span> Сколько человек</label>
+            <div class="stepper">
+              <button type="button" id="peopleMinus" aria-label="Меньше">−</button>
+              <div class="stepper-value"><b id="peopleValue">2</b><span>чел.</span></div>
+              <button type="button" id="peoplePlus" aria-label="Больше">+</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label"><span class="num">4</span> Приёмов пищи в день</label>
+            <div class="chips" id="mealsChips">
+              <button type="button" class="chip" data-meals="3">3 <small>завтрак, обед, ужин</small></button>
+              <button type="button" class="chip active" data-meals="4">4 <small>+ перекус</small></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Магазин -->
+        <div class="field">
+          <label class="field-label"><span class="num">5</span> Где будете закупаться</label>
+          <div class="stores" id="storeList"></div>
+        </div>
+
+        <!-- 6. Аллергии -->
+        <div class="field">
+          <label class="field-label"><span class="num">6</span> Аллергии и что исключить</label>
+          <p class="hint">Отмеченные продукты не попадут ни в один рецепт и ни в один пункт списка покупок.</p>
+          <div class="chips allergens" id="allergenList"></div>
+        </div>
+
+        <!-- 7. Дополнительно -->
+        <div class="field">
+          <label class="field-label"><span class="num">7</span> Дополнительно</label>
+          <div class="switches">
+            <label class="switch"><input type="checkbox" id="optVeg"><span class="slider"></span><em>Вегетарианское меню<small>без мяса, птицы и рыбы</small></em></label>
+            <label class="switch"><input type="checkbox" id="optNoPork"><span class="slider"></span><em>Без свинины<small>халяль-френдли подбор</small></em></label>
+            <label class="switch"><input type="checkbox" id="optStaples" checked><span class="slider"></span><em>Соль, специи, масло уже есть<small>не считать их в бюджет</small></em></label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-xl btn-block" id="submitBtn">
+          Составить меню и список покупок
+        </button>
+        <p class="form-note">Расчёт займёт пару секунд · план сохранится в браузере</p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= ЗАГРУЗКА ================= -->
+  <div class="loader" id="loader" hidden>
+    <div class="loader-box">
+      <div class="loader-ring"><svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"></circle><circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"></circle></svg><b id="loaderPct">0%</b></div>
+      <h3 id="loaderTitle">Готовим ваш план</h3>
+      <ul class="loader-steps" id="loaderSteps"></ul>
+    </div>
+  </div>
+
+  <!-- ================= РЕЗУЛЬТАТ ================= -->
+  <section class="result" id="result" hidden>
+    <div class="wrap">
+
+      <div class="result-head">
+        <div>
+          <h2 class="section-title" id="resultTitle">Ваш план питания</h2>
+          <p class="section-sub" id="resultSub"></p>
+        </div>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="btnRegen">↻ Пересобрать</button>
+          <button class="btn btn-ghost" id="btnEdit">✎ Изменить настройки</button>
+        </div>
+      </div>
+
+      <div class="notice" id="notice" hidden></div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="menu">Меню по дням</button>
+        <button class="tab" data-tab="shopping">Список покупок</button>
+        <button class="tab" data-tab="recipes">Рецепты</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-menu"></div>
+
+      <div class="tab-panel" id="panel-shopping">
+        <div class="shop-toolbar">
+          <div class="shop-total" id="shopTotal"></div>
+          <div class="shop-buttons">
+            <button class="btn btn-ghost btn-sm" id="btnCopy">Скопировать список</button>
+            <button class="btn btn-ghost btn-sm" id="btnDownload">Скачать .txt</button>
+            <button class="btn btn-ghost btn-sm" id="btnPrint">Распечатать</button>
+          </div>
+        </div>
+        <div id="shopList"></div>
+      </div>
+
+      <div class="tab-panel" id="panel-recipes"></div>
+
+    </div>
+  </section>
+
+  <!-- ================= КАК ЭТО РАБОТАЕТ ================= -->
+  <section id="how" class="how">
+    <div class="wrap">
+      <h2 class="section-title">Как это работает</h2>
+      <div class="how-grid">
+        <div class="how-card"><span class="how-num">1</span><h3>Вы задаёте рамки</h3><p>Бюджет, срок, количество едоков и список аллергий. Магазин определяет прайс, по которому считается корзина.</p></div>
+        <div class="how-card"><span class="how-num">2</span><h3>Фильтр аллергенов</h3><p>Из базы убираются все продукты с отмеченными аллергенами, а следом — каждый рецепт, где такой продукт встречался. Подмен не бывает.</p></div>
+        <div class="how-card"><span class="how-num">3</span><h3>Подбор под сумму</h3><p>Алгоритм перебирает уровни «дешевле — дороже», пока итог корзины не сядет в ваш бюджет: от каш и супов до мяса и рыбы каждый день.</p></div>
+        <div class="how-card"><span class="how-num">4</span><h3>Список с ценами</h3><p>Граммовки всех блюд суммируются и округляются до реальных упаковок: не «370 г гречки», а «1 пачка 800 г — 108 ₽».</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= КАТАЛОГ ================= -->
+  <section id="catalog-info" class="catalog">
+    <div class="wrap">
+      <h2 class="section-title">Каталог и цены</h2>
+      <p class="section-sub">Полный список продуктов, из которых собираются рецепты. Цена указана за килограмм или литр.</p>
+      <div class="catalog-controls">
+        <input type="search" id="catalogSearch" placeholder="Поиск: гречка, творог, минтай…">
+        <select id="catalogStore"></select>
+      </div>
+      <div id="catalogTable"></div>
+      <p class="disclaimer">
+        <b>Важно про цены.</b> У «Пятёрочки» и других сетей нет открытого API для сторонних сайтов,
+        поэтому здесь используется собственный прайс-лист — усреднённые полочные цены сети
+        (<span class="pd"></span>), а для остальных магазинов — коэффициент к нему. Реальный чек
+        отличается из-за акций, региона и конкретного магазина: считайте итог оценкой ±10–15 %.
+        Весь прайс лежит в одном файле <code>data.js</code> и обновляется за пару минут.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div>
+      <div class="logo"><span class="logo-mark">🥗</span><span class="logo-text">Меню<span>-План</span></span></div>
+      <p>Планировщик питания под бюджет. Работает полностью в браузере, данные никуда не уходят.</p>
+    </div>
+    <div class="footer-links">
+      <a href="#planner">Составить меню</a>
+      <a href="#how">Как это работает</a>
+      <a href="#catalog-info">Каталог и цены</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Модалка рецепта -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close aria-label="Закрыть">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="recipes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
