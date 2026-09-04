@@ -248,6 +248,42 @@
 .cat-count { color: var(--ink-3); font-weight: 600; }
 .cr-macro { font-size: 11.5px; color: var(--ink-3); font-weight: 600; min-width: 208px; }
 
+/* ================= ЧТО КУПИЛИ ================= */
+.bought-bar {
+  position: sticky; bottom: 12px; z-index: 30; margin-top: 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: var(--forest); color: #f4f1ea; border-radius: var(--r-lg);
+  padding: 16px 22px; box-shadow: var(--shadow-lg);
+}
+.bought-info b { display: block; font-size: 16px; color: #fff; }
+.bought-info span { font-size: 13px; color: rgba(244, 241, 234, .66); font-weight: 600; }
+.bought-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.bought-actions .btn-ghost { color: rgba(244, 241, 234, .8); border-color: rgba(244, 241, 234, .28); }
+.bought-actions .btn-ghost:hover { background: rgba(255, 255, 255, .1); color: #fff; border-color: var(--gold-l); }
+.bought-done { font-size: 14px; font-weight: 700; color: var(--gold-l); }
+
+.bought-plan {
+  margin-top: 18px; background: var(--card); border: 1px solid var(--gold-l);
+  border-radius: var(--r-xl); padding: 26px; box-shadow: var(--shadow-sm);
+}
+.bought-plan-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.bought-plan-head h3 { font-family: var(--serif); font-size: 23px; font-weight: 500; margin-bottom: 5px; }
+.bought-plan-head p { font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.bought-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+.bought-day { background: var(--cream); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; }
+.bought-day b { display: block; font-size: 13px; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
+.bought-day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bought-day li { display: flex; gap: 8px; font-size: 13.5px; line-height: 1.4; }
+.bought-day a { cursor: pointer; border-bottom: 1px dashed var(--line); }
+.bought-day a:hover { color: var(--gold); border-color: var(--gold); }
+.bought-left {
+  margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line);
+  font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.bought-left b { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); width: 100%; }
+.bought-left span { background: var(--green-l); color: var(--green-d); border-radius: 999px; padding: 4px 11px; font-weight: 700; }
+.bought-note { margin-top: 16px; font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+
 /* ================= ХОЛОДИЛЬНИК ================= */
 .fridge { padding: 90px 0; background: #fff; border-block: 1px solid var(--line); }
 .fridge-card {
@@ -376,7 +412,8 @@
 }
 @media (max-width: 560px) {
   .m-macro { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
-  .cr-macro { display: none; }
+  /* КБЖУ в каталоге нужен и на телефоне — просто переносим на свою строку */
+  .cr-macro { flex: 1 0 100%; order: 3; min-width: 0; font-size: 11.5px; }
   .fridge-suggest { left: 18px; right: 18px; top: 86px; }
   .macro-head { flex-direction: column; }
   .macro-portion { text-align: left; }
@@ -388,3 +425,30 @@
   .fridge { display: none !important; }
   .macros-card { break-inside: avoid; box-shadow: none; }
 }
+
+/* ================= ПОЛ И АКТИВНОСТЬ ================= */
+.sex-switch {
+  display: flex; gap: 4px; background: var(--cream); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px; margin-bottom: 14px;
+}
+.sex-switch button {
+  flex: 1; border: 0; background: none; cursor: pointer; padding: 8px 10px;
+  border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--ink-3);
+  transition: .2s; white-space: nowrap;
+}
+.sex-switch button:hover { color: var(--ink); }
+.sex-switch button.active { background: var(--forest); color: #fff; box-shadow: var(--shadow-xs); }
+.person-child .sex-switch button.active { background: var(--gold); }
+
+.person-activity { display: block; margin-top: 12px; }
+.person-activity > span {
+  display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 5px;
+}
+.person-activity select {
+  width: 100%; padding: 10px 12px; font-family: inherit; font-size: 13.5px;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--cream);
+  color: var(--ink); outline: none; transition: .2s; cursor: pointer;
+}
+.person-activity select:focus { border-color: var(--gold); background: #fff; }
+.person-title span { line-height: 1.4; }

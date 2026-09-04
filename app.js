@@ -10,8 +10,8 @@ const state = {
   budget: 7000,
   days: 7,
   persons: [
-    { type: 'adult', weight: 70 },
-    { type: 'adult', weight: 70 },
+    { type: 'adult', sex: 'm', weight: 78, height: 176, age: 30, activity: 'light' },
+    { type: 'adult', sex: 'f', weight: 62, height: 165, age: 30, activity: 'light' },
   ],
   mealsCount: 4,
   store: 'p5',
@@ -57,25 +57,48 @@ function rng(seed) {
 function childNorm(age) {
   return CHILD_NORMS.find(n => age <= n.max) || CHILD_NORMS[CHILD_NORMS.length - 1];
 }
+function activityOf(p) {
+  return ACTIVITY.find(a => a.id === (p.activity || 'light')) || ACTIVITY[1];
+}
+function sexOf(p) {
+  return SEXES.find(s => s.id === (p.sex || 'm')) || SEXES[0];
+}
+
+/* Основной обмен по формуле Миффлина — Сан Жеора: это медицинский стандарт,
+   и именно он объясняет, почему женщине нужно заметно меньше калорий, чем
+   мужчине того же веса: разная безжировая масса и метаболизм. */
+function bmr(p) {
+  const w = p.weight || 70;
+  const h = p.height || sexOf(p).height;
+  const age = p.age || 30;
+  const base = 10 * w + 6.25 * h - 5 * age;
+  return p.sex === 'f' ? base - 161 : base + 5;
+}
 
 function personTargets(p) {
   if (p.type === 'child') {
     const n = childNorm(p.age || 7);
-    const kcal = n.kcal;
+    const kcal = p.sex === 'f' ? n.kcalF : n.kcalM;
     const protein = Math.max(20, Math.round((p.weight || 25) * n.prPerKg));
     const fat = Math.round(kcal * 0.32 / 9);
     const fiber = Math.max(10, Math.round((p.age || 7) + 5));
     const carb = Math.max(60, Math.round((kcal - protein * 4 - fat * 9) / 4));
-    return { kcal, protein, fat, carb, fiber, ageLabel: n.label, isChild: true };
+    return { kcal, protein, fat, carb, fiber, ageLabel: n.label, isChild: true, bmr: 0, tdee: kcal };
   }
   const g = GOALS.find(x => x.id === state.goal) || GOALS[1];
   const w = p.weight || 70;
-  const kcal = Math.round(w * g.kcalPerKg);
+  const b = bmr(p);
+  const tdee = b * activityOf(p).k;
+  /* ниже основного обмена не опускаемся даже на диете — это уже голодание */
+  const kcal = Math.max(Math.round(b * 1.05), Math.round(tdee * g.kcalFactor));
   const protein = Math.round(w * g.proteinPerKg);
   const fat = Math.round(w * g.fatPerKg);
-  const fiber = Math.max(25, Math.round(kcal / 1000 * 14));
-  const carb = Math.max(60, Math.round((kcal - protein * 4 - fat * 9) / 4));
-  return { kcal, protein, fat, carb, fiber, isChild: false };
+  const fiber = Math.max(20, Math.round(kcal / 1000 * 14));
+  const carb = Math.max(50, Math.round((kcal - protein * 4 - fat * 9) / 4));
+  return {
+    kcal, protein, fat, carb, fiber, isChild: false,
+    bmr: Math.round(b), tdee: Math.round(tdee),
+  };
 }
 
 function peopleCount() { return state.persons.length; }
@@ -785,7 +808,7 @@ function renderShopping() {
     html += `<div class="shop-cat">
       <div class="shop-cat-head"><span>${cat.icon} ${cat.name}</span><b>${money(sum)}</b></div>
       ${list.map(i => `
-        <label class="shop-item">
+        <label class="shop-item" data-pid="${i.p.id}">
           <input type="checkbox">
           <span class="si-name">${i.p.n}${i.extra ? ' <small class="si-extra">· добор</small>' : ''}</span>
           <span class="si-qty">${i.packs} × ${i.p.packName} = ${kgLabel(i.buyKg)}</span>
@@ -802,8 +825,180 @@ function renderShopping() {
   $('#shopList').innerHTML = html;
   $('#shopTotal').innerHTML = `Итого по списку: <b>${money(p.shop.total)}</b> · ${p.shop.items.length} позиций · магазин «${STORES.find(s => s.id === state.store).name}»`;
   $$('#shopList .shop-item input').forEach(cb => {
-    cb.addEventListener('change', () => cb.closest('.shop-item').classList.toggle('checked', cb.checked));
+    cb.addEventListener('change', () => {
+      cb.closest('.shop-item').classList.toggle('checked', cb.checked);
+      renderBought();
+    });
   });
+  renderBought();
+}
+
+/* ============================================================
+   ЧТО РЕАЛЬНО КУПИЛИ
+   Человек отмечает в магазине галочками, что взял. Если часть
+   позиций осталась неотмеченной, можно пересобрать меню только из
+   купленного — и увидеть, на сколько дней его хватит.
+   ============================================================ */
+function boughtItems() {
+  const out = [];
+  $$('#shopList .shop-item').forEach(el => {
+    const cb = el.querySelector('input');
+    if (!cb || !cb.checked) return;
+    const item = state.plan.shop.items.find(i => i.p.id === el.dataset.pid);
+    if (item) out.push(item);
+  });
+  return out;
+}
+
+function renderBought() {
+  const box = $('#boughtBar');
+  if (!box || !state.plan) return;
+  const all = state.plan.shop.items;
+  const got = boughtItems();
+  const sum = got.reduce((s, i) => s + i.cost, 0);
+
+  if (!got.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const left = all.length - got.length;
+  box.innerHTML = `
+    <div class="bought-info">
+      <b>Отмечено ${got.length} из ${all.length}</b>
+      <span>на ${money(sum)}${left ? ' · не отмечено ' + left + ' ' + plural(left, 'позиция', 'позиции', 'позиций') : ''}</span>
+    </div>
+    ${left ? `<div class="bought-actions">
+      <button type="button" class="btn btn-primary btn-sm" id="btnRebuildBought">Пересобрать меню из купленного</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btnKeepPlan">Оставить как есть</button>
+    </div>` : `<div class="bought-actions"><span class="bought-done">✓ Куплено всё по списку</span></div>`}`;
+
+  const rb = $('#btnRebuildBought');
+  if (rb) rb.addEventListener('click', () => rebuildFromBought(got, sum));
+  const kp = $('#btnKeepPlan');
+  if (kp) kp.addEventListener('click', () => { $('#boughtResult').hidden = true; });
+}
+
+/* Собираем меню, пока хватает купленных продуктов */
+function rebuildFromBought(got, sum) {
+  const stock = {};
+  got.forEach(i => { stock[i.p.id] = (stock[i.p.id] || 0) + i.buyKg * 1000; });
+
+  const T = targets();
+  const meals = activeMeals();
+  const k = storeK(state.store);
+
+  /* блюда, которые вообще можно приготовить из купленного */
+  const pool = { breakfast: [], lunch: [], dinner: [], snack: [] };
+  RECIPES.forEach(r => {
+    const al = recipeAllergens(r);
+    if (al.some(a => state.excluded.indexOf(a) !== -1)) return;
+    if (state.veg && recipeHas(r, MEAT_IDS)) return;
+    if (state.noPork && recipeHas(r, PORK_IDS)) return;
+    if (!matchesCuisine(r) || !matchesStyle(r)) return;
+    const ok = r.ing.every(([id]) =>
+      stock[id] > 0 || (state.staplesOwned && PRODUCT_BY_ID[id].staple));
+    if (ok) pool[r.m].push({ r, cost: recipeCost(r, k), m: recipeMacro(r) });
+  });
+
+  const menu = [];
+  const lastUsed = {};
+  let day = 0;
+  const maxDays = state.days;
+
+  const missedMeals = {};
+  while (day < maxDays) {
+    const picked = [];
+
+    for (const m of meals) {
+      const list = pool[m].filter(x => {
+        const lu = lastUsed[x.r.id];
+        return lu === undefined || day - lu > 2;
+      });
+      const cands = list.length ? list : pool[m];
+      /* берём блюдо, на которое хватает остатка */
+      const fits = cands.find(x => x.r.ing.every(([id, g]) => {
+        const need = g * PORTION * peopleCount();
+        return (stock[id] || 0) >= need || (state.staplesOwned && PRODUCT_BY_ID[id].staple);
+      }));
+      /* если на приём пищи продуктов нет, день всё равно засчитываем —
+         человеку полезнее увидеть «обед и ужин закрыты», чем пустой экран */
+      if (!fits) { missedMeals[m] = (missedMeals[m] || 0) + 1; continue; }
+      picked.push({ type: m, item: fits });
+    }
+
+    if (!picked.length) break;
+
+    picked.forEach(p => {
+      p.item.r.ing.forEach(([id, g]) => {
+        if (state.staplesOwned && PRODUCT_BY_ID[id].staple) return;
+        stock[id] = Math.max(0, (stock[id] || 0) - g * PORTION * peopleCount());
+      });
+      lastUsed[p.item.r.id] = day;
+    });
+
+    menu.push({
+      day,
+      scale: peopleCount(),
+      boost: [],
+      meals: picked.map(p => ({ type: p.type, id: p.item.r.id })),
+    });
+    day++;
+  }
+
+  const leftovers = Object.keys(stock)
+    .filter(id => stock[id] > 60)
+    .map(id => ({ p: PRODUCT_BY_ID[id], g: stock[id] }))
+    .sort((a, b) => b.g * b.p.price - a.g * a.p.price)
+    .slice(0, 12);
+
+  const box = $('#boughtResult');
+  box.hidden = false;
+
+  if (!menu.length) {
+    box.innerHTML = `<div class="notice warn">
+      <b>Из отмеченного не собирается ни одно блюдо целиком.</b> Обычно не хватает основы —
+      крупы, макарон или овощей. Отметьте ещё несколько позиций или загляните
+      в <a href="fridge.html">Холодильник</a>: там видно, где до готового блюда не хватает
+      одного продукта.</div>`;
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+
+  /* какие приёмы пищи закрыть не удалось */
+  const missNames = Object.keys(missedMeals)
+    .filter(m => missedMeals[m] >= menu.length)
+    .map(m => MEALS.find(x => x.id === m).name.toLowerCase());
+
+  const dishes = menu.map(d => d.meals.map(m => RECIPE_BY_ID[m.id].n));
+  box.innerHTML = `
+    <div class="bought-plan">
+      <div class="bought-plan-head">
+        <div>
+          <h3>Купленного хватит на ${menu.length} ${plural(menu.length, 'день', 'дня', 'дней')}</h3>
+          <p>Потрачено ${money(sum)} · ${peopleLabel()}${missNames.length
+            ? ' · на ' + missNames.join(' и ') + ' продуктов не хватило'
+            : ' · все ' + state.mealsCount + ' ' + plural(state.mealsCount, 'приём', 'приёма', 'приёмов') + ' пищи закрыты'}</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnCloseBought">Закрыть</button>
+      </div>
+      <div class="bought-days">
+        ${menu.map((d, i) => `<div class="bought-day">
+          <b>День ${i + 1}</b>
+          <ul>${d.meals.map((m, j) => `<li><span>${MEALS.find(x => x.id === m.type).icon}</span>
+            <a data-recipe="${m.id}">${dishes[i][j]}</a></li>`).join('')}</ul>
+        </div>`).join('')}
+      </div>
+      ${leftovers.length ? `<div class="bought-left">
+        <b>Останется после этих дней:</b>
+        ${leftovers.map(l => `<span>${l.p.n} ~${l.g >= 1000 ? kgLabel(l.g / 1000) : Math.round(l.g) + ' г'}</span>`).join('')}
+      </div>` : ''}
+      <p class="bought-note">Это меню только из того, что вы отметили: докупать ничего не нужно.
+      Основной план выше не изменился — если он больше подходит, просто продолжайте по нему.</p>
+    </div>`;
+
+  $('#btnCloseBought').addEventListener('click', () => { box.hidden = true; });
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function renderRecipesTab() {
@@ -1039,12 +1234,12 @@ function initForm() {
 
   $('#addAdult').addEventListener('click', () => {
     if (state.persons.length >= 10) return;
-    state.persons.push({ type: 'adult', weight: 70 });
+    state.persons.push({ type: 'adult', sex: 'f', weight: 60, height: 165, age: 30, activity: 'light' });
     renderPersons(); saveSettings();
   });
   $('#addChild').addEventListener('click', () => {
     if (state.persons.length >= 10) return;
-    state.persons.push({ type: 'child', weight: 25, age: 7 });
+    state.persons.push({ type: 'child', sex: 'm', weight: 25, age: 7 });
     renderPersons(); saveSettings();
   });
 
@@ -1056,41 +1251,84 @@ function initForm() {
 }
 
 /* ---------- список едоков ---------- */
+function personSubtitle(p) {
+  const t = personTargets(p);
+  return p.type === 'child'
+    ? `${num(t.kcal)} ккал · ${num(t.protein)} г белка · ${t.ageLabel}`
+    : `${num(t.kcal)} ккал · ${num(t.protein)} г белка · обмен ${num(t.bmr)}, расход ${num(t.tdee)}`;
+}
+
 function renderPersons() {
   const html = state.persons.map((p, i) => {
-    const t = personTargets(p);
     const isChild = p.type === 'child';
+    const sx = sexOf(p);
     return `<div class="person${isChild ? ' person-child' : ''}" data-i="${i}">
       <div class="person-top">
-        <span class="person-ic">${isChild ? '🧒' : '🧑'}</span>
+        <span class="person-ic">${isChild ? (p.sex === 'f' ? '👧' : '👦') : sx.icon}</span>
         <div class="person-title">
-          <b>${isChild ? 'Ребёнок' : 'Взрослый'}</b>
-          <span>${num(t.kcal)} ккал · ${num(t.protein)} г белка${isChild ? ' · ' + t.ageLabel : ''}</span>
+          <b>${isChild ? sx.childName : sx.name}</b>
+          <span>${personSubtitle(p)}</span>
         </div>
         ${state.persons.length > 1
           ? `<button type="button" class="person-del" data-del="${i}" title="Убрать" aria-label="Убрать">×</button>`
           : ''}
       </div>
+
+      <div class="sex-switch" role="group" aria-label="Пол">
+        ${SEXES.map(s => `<button type="button" class="${p.sex === s.id ? 'active' : ''}"
+          data-sex="${s.id}" data-i="${i}">${s.icon} ${isChild ? s.childName : s.name}</button>`).join('')}
+      </div>
+
       <div class="person-fields">
         <label>
           <span>Вес</span>
           <div class="input-unit">
-            <input type="number" min="${isChild ? 8 : 30}" max="${isChild ? 120 : 200}" step="1"
+            <input type="number" min="${isChild ? 8 : 35}" max="${isChild ? 120 : 250}" step="1"
                    value="${p.weight}" data-field="weight" data-i="${i}" inputmode="numeric"><span>кг</span>
           </div>
         </label>
-        ${isChild ? `<label>
+        <label>
           <span>Возраст</span>
           <div class="input-unit">
-            <input type="number" min="1" max="17" step="1" value="${p.age}"
+            <input type="number" min="${isChild ? 1 : 14}" max="${isChild ? 17 : 100}" step="1" value="${p.age}"
                    data-field="age" data-i="${i}" inputmode="numeric"><span>лет</span>
           </div>
-        </label>` : ''}
+        </label>
+        ${isChild ? '' : `<label>
+          <span>Рост</span>
+          <div class="input-unit">
+            <input type="number" min="120" max="230" step="1" value="${p.height || sx.height}"
+                   data-field="height" data-i="${i}" inputmode="numeric"><span>см</span>
+          </div>
+        </label>`}
       </div>
+
+      ${isChild ? '' : `<label class="person-activity">
+        <span>Активность</span>
+        <select data-field="activity" data-i="${i}">
+          ${ACTIVITY.map(a => `<option value="${a.id}"${(p.activity || 'light') === a.id ? ' selected' : ''}>${a.name} — ${a.desc}</option>`).join('')}
+        </select>
+      </label>`}
     </div>`;
   }).join('');
 
   $('#personList').innerHTML = html;
+
+  $$('#personList [data-sex]').forEach(b => b.addEventListener('click', () => {
+    const p = state.persons[+b.dataset.i];
+    if (!p) return;
+    p.sex = b.dataset.sex;
+    if (p.type === 'adult') p.height = SEXES.find(s => s.id === p.sex).height;
+    renderPersons(); saveSettings();
+  }));
+
+  $$('#personList select[data-field]').forEach(sel => sel.addEventListener('change', () => {
+    const p = state.persons[+sel.dataset.i];
+    if (!p) return;
+    p.activity = sel.value;
+    sel.closest('.person').querySelector('.person-title span').textContent = personSubtitle(p);
+    saveSettings();
+  }));
 
   $$('#personList [data-del]').forEach(b => b.addEventListener('click', () => {
     state.persons.splice(+b.dataset.del, 1);
@@ -1103,13 +1341,11 @@ function renderPersons() {
     if (!p) return;
     const v = parseInt(inp.value, 10);
     if (isNaN(v)) return;
-    if (f === 'weight') p.weight = clamp(v, p.type === 'child' ? 8 : 30, p.type === 'child' ? 120 : 200);
-    if (f === 'age') p.age = clamp(v, 1, 17);
+    if (f === 'weight') p.weight = clamp(v, p.type === 'child' ? 8 : 35, p.type === 'child' ? 120 : 250);
+    if (f === 'age') p.age = clamp(v, p.type === 'child' ? 1 : 14, p.type === 'child' ? 17 : 100);
+    if (f === 'height') p.height = clamp(v, 120, 230);
     /* подпись с нормой обновляем без перерисовки поля, чтобы не сбить курсор */
-    const card = inp.closest('.person');
-    const t = personTargets(p);
-    card.querySelector('.person-title span').textContent =
-      num(t.kcal) + ' ккал · ' + num(t.protein) + ' г белка' + (p.type === 'child' ? ' · ' + t.ageLabel : '');
+    inp.closest('.person').querySelector('.person-title span').textContent = personSubtitle(p);
     saveSettings();
   }));
 
@@ -1140,13 +1376,14 @@ function updateStyleCounts() {
 /* подписи с нормой под каждой целью */
 function updateGoalNumbers() {
   const save = state.goal;
-  const adult = state.persons.find(p => p.type === 'adult') || { type: 'adult', weight: 70 };
+  const adult = state.persons.find(p => p.type === 'adult') ||
+    { type: 'adult', sex: 'm', weight: 78, height: 176, age: 30, activity: 'light' };
   GOALS.forEach(g => {
     state.goal = g.id;
     const t = personTargets(adult);
     const el = $(`[data-goalnum="${g.id}"]`);
     if (el) el.textContent = `${num(t.kcal)} ккал · ${num(t.protein)} г белка · ${num(t.fiber)} г клетчатки` +
-      ` · для взрослого ${adult.weight} кг`;
+      ` · ${sexOf(adult).name.toLowerCase()}, ${adult.weight} кг, ${adult.age} лет`;
   });
   state.goal = save;
 }
@@ -1334,6 +1571,19 @@ function updateBudgetHint() {
 let resyncTimer = null;
 function resyncPlan() {
   if (!state.plan) return;
+  /* если галочки уже расставлены, человек стоит в магазине — не трогаем список */
+  if ($$('#shopList .shop-item input:checked').length) {
+    const el = $('#notice');
+    if (el && !el.dataset.locked) {
+      el.dataset.locked = '1';
+      el.className = 'notice warn';
+      el.innerHTML = '<b>Настройки изменились, но список покупок не тронут</b> — в нём уже ' +
+        'отмечены купленные позиции. Нажмите «Пересобрать», когда закончите с покупками.';
+      el.hidden = false;
+    }
+    return;
+  }
+  if ($('#notice')) delete $('#notice').dataset.locked;
   clearTimeout(resyncTimer);
   resyncTimer = setTimeout(() => {
     const res = generatePlan(Date.now() % 100000);
@@ -1381,15 +1631,21 @@ function migratePersons(obj) {
   if (obj && !Array.isArray(obj.persons) && typeof obj.people === 'number') {
     const w = typeof obj.weight === 'number' ? obj.weight : 70;
     obj.persons = [];
-    for (let i = 0; i < Math.max(1, obj.people); i++) obj.persons.push({ type: 'adult', weight: w });
+    for (let i = 0; i < Math.max(1, obj.people); i++) {
+      obj.persons.push({ type: 'adult', sex: i % 2 ? 'f' : 'm', weight: w, height: i % 2 ? 165 : 176, age: 30, activity: 'light' });
+    }
   }
   if (obj && Array.isArray(obj.persons)) {
     obj.persons = obj.persons
       .filter(p => p && (p.type === 'adult' || p.type === 'child'))
       .map(p => p.type === 'child'
-        ? { type: 'child', weight: p.weight || 25, age: p.age || 7 }
-        : { type: 'adult', weight: p.weight || 70 });
-    if (!obj.persons.length) obj.persons = [{ type: 'adult', weight: 70 }];
+        ? { type: 'child', sex: p.sex || 'm', weight: p.weight || 25, age: p.age || 7 }
+        : {
+            type: 'adult', sex: p.sex || 'm', weight: p.weight || 70,
+            height: p.height || (p.sex === 'f' ? 165 : 176),
+            age: p.age || 30, activity: p.activity || 'light',
+          });
+    if (!obj.persons.length) obj.persons = [{ type: 'adult', sex: 'm', weight: 78, height: 176, age: 30, activity: 'light' }];
   }
   delete obj.people; delete obj.weight;
   return obj;

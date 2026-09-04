@@ -119,6 +119,26 @@ code {
 .header-nav a:not(.btn):hover { color: var(--forest); }
 .header-nav a:not(.btn):hover::after { right: 0; }
 
+/* кнопка-бургер: видна только на узких экранах */
+.nav-toggle {
+  display: none; width: 46px; height: 46px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--card); cursor: pointer;
+  padding: 0; transition: .2s; margin-left: 12px; position: relative;
+}
+.nav-toggle span {
+  position: absolute; left: 13px; width: 20px; height: 2px; border-radius: 2px;
+  background: var(--forest); transition: .25s cubic-bezier(.2, .7, .3, 1);
+}
+.nav-toggle span:nth-child(1) { top: 15px; }
+.nav-toggle span:nth-child(2) { top: 22px; }
+.nav-toggle span:nth-child(3) { top: 29px; }
+.nav-toggle:hover { border-color: var(--gold); }
+.site-header.nav-open .nav-toggle { background: var(--forest); border-color: var(--forest); }
+.site-header.nav-open .nav-toggle span { background: #fff; }
+.site-header.nav-open .nav-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.site-header.nav-open .nav-toggle span:nth-child(2) { opacity: 0; }
+.site-header.nav-open .nav-toggle span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
 /* ================= HERO ================= */
 .hero {
   background: var(--forest); color: #f4f1ea; padding: 92px 0 104px; position: relative; overflow: hidden;
@@ -488,7 +508,26 @@ section { scroll-margin-top: 90px; }
   .hero-inner { grid-template-columns: 1fr; gap: 40px; }
   .hero { padding: 60px 0 70px; }
   .field-grid { grid-template-columns: 1fr; }
-  .header-nav a:not(.btn) { display: none; }
+
+  /* вкладки уезжают в выпадающее меню под кнопкой-бургером */
+  .nav-toggle { display: grid; }
+  .header-inner { position: relative; }
+  .header-nav {
+    position: absolute; top: calc(100% + 12px); left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+    box-shadow: var(--shadow); padding: 8px; overflow: hidden;
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity .2s ease, transform .2s ease, visibility .2s;
+  }
+  .site-header.nav-open .header-nav { opacity: 1; visibility: visible; transform: none; }
+  .header-nav a:not(.btn) {
+    padding: 14px 16px; font-size: 16px; border-radius: var(--r-md); color: var(--ink);
+  }
+  .header-nav a:not(.btn)::after { display: none; }
+  .header-nav a:not(.btn):hover,
+  .header-nav a.is-current { background: var(--green-l); color: var(--forest); }
+  .header-nav .btn { margin: 8px 8px 6px; }
   .form-card { padding: 26px 20px; }
   .planner, .how, .catalog { padding: 60px 0; }
 }
@@ -496,10 +535,22 @@ section { scroll-margin-top: 90px; }
   .wrap { width: calc(100% - 32px); }
   .input-money input { width: 100%; }
   .budget-row { flex-direction: column; align-items: stretch; }
-  .si-qty { display: none; }
+  /* на телефоне строка списка становится двухстрочной,
+     но граммовки и упаковки остаются видны */
+  .shop-item { flex-wrap: wrap; row-gap: 4px; padding: 13px 16px; }
+  .si-name { flex: 1 1 auto; min-width: 0; }
+  .si-price { min-width: auto; }
+  .si-qty {
+    flex: 1 0 100%; order: 3; text-align: left; padding-left: 33px;
+    font-size: 12.5px; color: var(--ink-3);
+  }
   .result-actions { width: 100%; }
   .result-actions .btn { flex: 1; }
-  .cat-row .cr-pack { display: none; }
+  .cat-row { flex-wrap: wrap; row-gap: 4px; }
+  .cat-row .cr-name { flex: 1 0 60%; }
+  .cat-row .cr-price { flex: 1 0 30%; }
+  .cat-row .cr-pack { flex: 1 0 100%; order: 4; min-width: 0; }
+  .cat-row .cr-tags { order: 5; flex: 1 0 100%; }
   .hero-stats { gap: 24px; }
   .hero-stats b { font-size: 27px; }
   .modal-box { padding: 22px 18px; }
