@@ -5,6 +5,8 @@
 /* ---------- состояние ---------- */
 const state = {
   goal: 'normal',
+  dietStyle: 'any',   /* any | healthy | lean */
+  cuisines: [],       /* пусто = любая кухня */
   weight: 70,
   budget: 7000,
   days: 7,
@@ -78,6 +80,45 @@ function recipeCost(r, k) {
 }
 function recipeHas(r, ids) { return r.ing.some(([id]) => ids.indexOf(id) !== -1); }
 
+/* ---------- стиль питания ----------
+   Постное и «правильное» определяются по составу блюда, а не вручную:
+   так новые рецепты попадают в фильтры автоматически. */
+const ANIMAL_EXTRA = ['milk', 'kefir', 'sour_cream', 'cottage_cheese', 'cheese_russian',
+  'processed_cheese', 'butter', 'yogurt_natural', 'greek_yogurt', 'cream_10', 'cream_20',
+  'cream_cheese', 'eggs', 'honey', 'parmesan', 'mozzarella', 'ricotta', 'mascarpone', 'feta',
+  'suluguni', 'adygea', 'cheddar', 'condensed_milk', 'mayo', 'noodles_egg', 'burger_buns',
+  'cookies', 'chocolate'];
+const JUNK_IDS = ['sausage_doctor', 'sausages_milk', 'mayo', 'cookies', 'chocolate', 'salami',
+  'bacon', 'crab_sticks', 'condensed_milk', 'jam', 'juice', 'ketchup'];
+const FAT_IDS = ['sunflower_oil', 'olive_oil', 'sesame_oil', 'butter'];
+
+/* Постное: ни мяса, ни рыбы, ни молочного, ни яиц, ни мёда */
+function isLean(r) {
+  return !r.ing.some(([id]) =>
+    MEAT_IDS.indexOf(id) !== -1 || ANIMAL_EXTRA.indexOf(id) !== -1);
+}
+
+/* Правильное питание: без колбас, майонеза и сладостей, немного масла
+   и сахара, и при этом блюдо что-то даёт — белок или клетчатку */
+function isHealthy(r) {
+  if (r.ing.some(([id]) => JUNK_IDS.indexOf(id) !== -1)) return false;
+  const sugar = r.ing.find(([id]) => id === 'sugar');
+  if (sugar && sugar[1] > 10) return false;
+  const fat = r.ing.filter(([id]) => FAT_IDS.indexOf(id) !== -1).reduce((s, [, g]) => s + g, 0);
+  if (fat > 16) return false;
+  const m = recipeMacro(r);
+  return m.pr >= 12 || m.fi >= 3;
+}
+
+function matchesStyle(r) {
+  if (state.dietStyle === 'lean') return isLean(r);
+  if (state.dietStyle === 'healthy') return isHealthy(r);
+  return true;
+}
+function matchesCuisine(r) {
+  return !state.cuisines.length || state.cuisines.indexOf(r.cuisine) !== -1;
+}
+
 const RECIPE_BY_ID = {};
 RECIPES.forEach(r => { RECIPE_BY_ID[r.id] = r; });
 
@@ -90,6 +131,8 @@ function buildPool() {
     if (al.some(a => state.excluded.indexOf(a) !== -1)) return;
     if (state.veg && recipeHas(r, MEAT_IDS)) return;
     if (state.noPork && recipeHas(r, PORK_IDS)) return;
+    if (!matchesCuisine(r)) return;
+    if (!matchesStyle(r)) return;
     pool[r.m].push({ r, cost: recipeCost(r, k), m: recipeMacro(r) });
   });
   Object.keys(pool).forEach(m => pool[m].sort((a, b) => a.cost - b.cost));
@@ -106,7 +149,8 @@ function activeMeals() {
    Поэтому к дню добавляется «добавка»: творог, яйца, грудка, отруби —
    ровно столько, сколько нужно, и только если остаётся запас по калориям. */
 const BOOST_PROTEIN = ['cottage_cheese', 'chicken_fillet', 'eggs', 'canned_tuna', 'turkey_fillet',
-  'kefir', 'cheese_russian', 'lentils', 'chickpeas', 'peas_dry', 'peanut', 'milk'];
+  'kefir', 'cheese_russian', 'tofu', 'lentils', 'chickpeas', 'peas_dry', 'red_beans',
+  'white_beans_canned', 'peanut', 'milk'];
 const BOOST_FIBER = ['bran', 'cabbage', 'carrot', 'apple', 'broccoli_frozen', 'beans_canned', 'dried_apricots'];
 
 function productAllowed(p) {
@@ -114,7 +158,20 @@ function productAllowed(p) {
   if (p.a.some(a => state.excluded.indexOf(a) !== -1)) return false;
   if (state.veg && MEAT_IDS.indexOf(p.id) !== -1) return false;
   if (state.noPork && PORK_IDS.indexOf(p.id) !== -1) return false;
+  /* добор и добавки тоже подчиняются стилю питания */
+  if (state.dietStyle === 'lean' &&
+      (MEAT_IDS.indexOf(p.id) !== -1 || ANIMAL_EXTRA.indexOf(p.id) !== -1)) return false;
+  if (state.dietStyle === 'healthy' && JUNK_IDS.indexOf(p.id) !== -1) return false;
   return true;
+}
+
+/* Во сколько калорий обходится грамм белка из лучшего доступного источника.
+   На обычном меню это грудка или творог (~5–7 ккал/г), на постном — бобовые
+   и тофу (до 15 ккал/г), поэтому резерв калорий под добор нужен больше. */
+function kcalPerGramProtein() {
+  const list = BOOST_PROTEIN.map(id => PRODUCT_BY_ID[id]).filter(p => productAllowed(p) && p.pr > 5);
+  if (!list.length) return 6;
+  return clamp(Math.min.apply(null, list.map(p => p.kc / p.pr)), 4, 16);
 }
 
 /* dm — КБЖУ дня уже с учётом масштаба порций */
@@ -136,7 +193,7 @@ function buildBoost(dm, T) {
 
   /* белок: берём постные продукты, а среди них — самые дешёвые за грамм белка.
      На диете планка «постности» выше: лишние калории там критичнее. */
-  const lean = state.goal === 'diet' ? 0.09 : 0.05;
+  const lean = state.dietStyle === 'lean' ? 0.065 : (state.goal === 'diet' ? 0.09 : 0.05);
   const all = BOOST_PROTEIN.map(id => PRODUCT_BY_ID[id]).filter(p => productAllowed(p) && p.pr > 5);
   let prList = all.filter(p => p.pr / Math.max(p.kc, 1) >= lean);
   if (!prList.length) prList = all;
@@ -243,7 +300,7 @@ function buildMenu(pool, lvl, seed, T) {
       let scale = clamp(T.kcal / t.kc, 0.7, 1.7);
       const prDeficit = T.protein - t.pr * scale;
       if (prDeficit > 0) {
-        const reserve = Math.min(T.kcal * 0.3, prDeficit * 6);
+        const reserve = Math.min(T.kcal * 0.42, prDeficit * kcalPerGramProtein());
         scale = clamp((T.kcal - reserve) / t.kc, 0.7, 1.7);
       }
       const pr = t.pr * scale, fi = t.fi * scale, fa = t.fa * scale, cost = t.cost * scale;
@@ -351,7 +408,7 @@ const EXTRA_IDS = ['apple', 'banana', 'pear', 'orange', 'yogurt_natural', 'kefir
 function pickExtras(remaining, k) {
   const cands = EXTRA_IDS
     .map(id => PRODUCT_BY_ID[id])
-    .filter(p => p && !p.a.some(a => state.excluded.indexOf(a) !== -1))
+    .filter(productAllowed)
     .map(p => ({ id: p.id, cost: p.pack * p.price * k }))
     .sort((a, b) => a.cost - b.cost);
   if (!cands.length) return [];
@@ -443,7 +500,8 @@ function generatePlan(seed) {
     maxTotal: richest.shop.total,
     extras,
     settings: {
-      goal: state.goal, weight: state.weight, budget: state.budget, days: state.days,
+      goal: state.goal, dietStyle: state.dietStyle, cuisines: state.cuisines.slice(),
+      weight: state.weight, budget: state.budget, days: state.days,
       people: state.people, mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded.slice(), veg: state.veg, noPork: state.noPork,
       staplesOwned: state.staplesOwned,
@@ -756,7 +814,9 @@ function renderAll() {
   const p = state.plan;
   if (!p) return;
   $('#resultSub').textContent =
-    `${p.targets.goal.name} · ${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${state.people} ${plural(state.people, 'человек', 'человека', 'человек')} · ` +
+    `${p.targets.goal.name} · ${DIET_STYLES.find(s => s.id === state.dietStyle).name.toLowerCase()} · ` +
+    `${state.cuisines.length ? state.cuisines.map(c => CUISINES.find(x => x.id === c).name.toLowerCase()).join(', ') : 'все кухни'} · ` +
+    `${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${state.people} ${plural(state.people, 'человек', 'человека', 'человек')} · ` +
     `${state.mealsCount} ${plural(state.mealsCount, 'приём', 'приёма', 'приёмов')} пищи · «${STORES.find(s => s.id === state.store).name}»` +
     (state.excluded.length ? ` · без: ${state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')}` : '');
   renderNotice();
@@ -783,6 +843,35 @@ function initForm() {
     state.goal = b.dataset.goal;
     $$('#goalList .goal').forEach(x => x.classList.toggle('active', x === b));
     updateGoalNumbers();
+    saveSettings();
+  }));
+
+  /* стиль питания */
+  $('#styleList').innerHTML = DIET_STYLES.map(s => `
+    <button type="button" class="style ${s.id === state.dietStyle ? 'active' : ''}" data-style="${s.id}">
+      <span class="style-ic">${s.icon}</span>
+      <span class="style-name">${s.name}</span>
+      <span class="style-desc">${s.desc}</span>
+      <span class="style-count" data-stylecount="${s.id}"></span>
+    </button>`).join('');
+  $$('#styleList .style').forEach(b => b.addEventListener('click', () => {
+    state.dietStyle = b.dataset.style;
+    $$('#styleList .style').forEach(x => x.classList.toggle('active', x === b));
+    saveSettings();
+  }));
+
+  /* кухни */
+  $('#cuisineList').innerHTML =
+    `<button type="button" class="chip cuisine-any ${state.cuisines.length ? '' : 'active'}" data-cuisine="">🌍 Любая</button>` +
+    CUISINES.map(c => `<button type="button" class="chip" data-cuisine="${c.id}">${c.icon} ${c.name}</button>`).join('');
+  $$('#cuisineList .chip').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.cuisine;
+    if (!id) { state.cuisines = []; }
+    else {
+      const i = state.cuisines.indexOf(id);
+      if (i === -1) state.cuisines.push(id); else state.cuisines.splice(i, 1);
+    }
+    syncCuisineChips();
     saveSettings();
   }));
 
@@ -851,6 +940,26 @@ function initForm() {
   $('#planForm').addEventListener('submit', e => { e.preventDefault(); run(); });
 }
 
+function syncCuisineChips() {
+  $$('#cuisineList .chip').forEach(b => {
+    const id = b.dataset.cuisine;
+    b.classList.toggle('active', id ? state.cuisines.indexOf(id) !== -1 : !state.cuisines.length);
+  });
+}
+
+/* сколько блюд остаётся в каждом стиле питания при текущих ограничениях */
+function updateStyleCounts() {
+  const save = state.dietStyle;
+  DIET_STYLES.forEach(s => {
+    state.dietStyle = s.id;
+    const pool = buildPool();
+    const n = activeMeals().reduce((a, m) => a + pool[m].length, 0);
+    const el = $(`[data-stylecount="${s.id}"]`);
+    if (el) el.textContent = 'подходит ' + n + ' ' + plural(n, 'блюдо', 'блюда', 'блюд');
+  });
+  state.dietStyle = save;
+}
+
 /* подписи с нормой под каждой целью */
 function updateGoalNumbers() {
   const save = state.goal;
@@ -871,12 +980,15 @@ function applySettingsToForm() {
   $$('#mealsChips .chip').forEach(c => c.classList.toggle('active', +c.dataset.meals === state.mealsCount));
   $('#peopleValue').textContent = state.people;
   $$('#goalList .goal').forEach(b => b.classList.toggle('active', b.dataset.goal === state.goal));
+  $$('#styleList .style').forEach(b => b.classList.toggle('active', b.dataset.style === state.dietStyle));
+  syncCuisineChips();
   $$('#storeList .store').forEach(b => b.classList.toggle('active', b.dataset.store === state.store));
   $$('#allergenList .chip').forEach(b => b.classList.toggle('active', state.excluded.indexOf(b.dataset.allergen) !== -1));
   $('#optVeg').checked = state.veg;
   $('#optNoPork').checked = state.noPork;
   $('#optStaples').checked = state.staplesOwned;
   updateGoalNumbers();
+  updateStyleCounts();
   updateBudgetHint();
 }
 
@@ -1071,10 +1183,12 @@ function updateBudgetHint() {
 }
 
 function saveSettings() {
+  updateStyleCounts();
   updateBudgetHint();
   try {
     localStorage.setItem(LS_SET, JSON.stringify({
-      goal: state.goal, weight: state.weight, budget: state.budget, days: state.days,
+      goal: state.goal, dietStyle: state.dietStyle, cuisines: state.cuisines,
+      weight: state.weight, budget: state.budget, days: state.days,
       people: state.people, mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded, veg: state.veg, noPork: state.noPork,
       staplesOwned: state.staplesOwned,
@@ -1118,6 +1232,7 @@ function loadPlan() {
   $('#statProducts').textContent = PRODUCTS.length;
   $('#statRecipes').textContent = RECIPES.length;
   $('#statAllerg').textContent = ALLERGENS.length;
+  if ($('#statCuisines')) $('#statCuisines').textContent = CUISINES.length;
   $('#priceDate').textContent = PRICE_DATE;
   $$('.pd').forEach(el => { el.textContent = PRICE_DATE; });
 

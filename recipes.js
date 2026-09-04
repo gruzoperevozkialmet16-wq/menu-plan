@@ -541,6 +541,15 @@ const MEALS = [
 ];
 
 
+/* Рецепты из recipes.js — русская и домашняя кухня */
+RECIPES.forEach(function (r) { if (!r.cuisine) r.cuisine = 'ru'; });
+
+/* RC — та же запись рецепта, но с кухней. Используется в файлах
+   recipes-it.js, recipes-asia.js и остальных. */
+function RC(id, n, m, cuisine, t, ing, steps, img) {
+  return { id, n, m, t, ing, steps, cuisine, img: img || null };
+}
+
 /* ============================================================
    ОФОРМЛЕНИЕ БЛЮД
    Пока к рецепту не приложена фотография (поле img), карточка

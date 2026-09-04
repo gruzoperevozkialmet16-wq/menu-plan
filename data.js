@@ -37,6 +37,27 @@ const GOALS = [
     kcalPerKg: 40, proteinPerKg: 2.0, fatPerKg: 1.1 },
 ];
 
+/* КУХНИ. Пользователь может выбрать одну или несколько;
+   пустой выбор означает «любая». */
+const CUISINES = [
+  { id: 'ru',   name: 'Русская и домашняя', icon: '🥟' },
+  { id: 'it',   name: 'Итальянская',        icon: '🍝' },
+  { id: 'asia', name: 'Азиатская',          icon: '🍜' },
+  { id: 'cauc', name: 'Кавказская',         icon: '🥘' },
+  { id: 'med',  name: 'Средиземноморская',  icon: '🫒' },
+  { id: 'mex',  name: 'Мексиканская',       icon: '🌮' },
+  { id: 'eu',   name: 'Европейская',        icon: '🥐' },
+  { id: 'east', name: 'Ближневосточная',    icon: '🧆' },
+  { id: 'ind',  name: 'Индийская',          icon: '🍛' },
+];
+
+/* СТИЛИ ПИТАНИЯ — дополнительный фильтр поверх цели */
+const DIET_STYLES = [
+  { id: 'any',     name: 'Любые блюда',       icon: '🍽️', desc: 'Всё, что есть в базе' },
+  { id: 'healthy', name: 'Правильное питание', icon: '🥦', desc: 'Без колбас, майонеза, жарки во фритюре и лишнего сахара' },
+  { id: 'lean',    name: 'Постное',            icon: '🌿', desc: 'Без мяса, рыбы, молочного, яиц и мёда' },
+];
+
 /* Аллергены и исключения */
 const ALLERGENS = [
   { id: 'gluten',   name: 'Глютен',         icon: '🌾' },
@@ -47,6 +68,7 @@ const ALLERGENS = [
   { id: 'nut',      name: 'Орехи',          icon: '🌰' },
   { id: 'peanut',   name: 'Арахис',         icon: '🥜' },
   { id: 'soy',      name: 'Соя',            icon: '🫘' },
+  { id: 'sesame',   name: 'Кунжут',         icon: '🌱' },
   { id: 'honey',    name: 'Мёд',            icon: '🍯' },
   { id: 'citrus',   name: 'Цитрусовые',     icon: '🍊' },
   { id: 'cocoa',    name: 'Какао, шоколад', icon: '🍫' },

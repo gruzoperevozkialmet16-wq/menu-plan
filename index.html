@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Меню-План — рецепты, КБЖУ и список покупок под ваш бюджет</title>
-<meta name="description" content="Укажите бюджет, цель (диета или набор массы), аллергии и магазин — сервис составит меню на неделю, месяц или два с расчётом КБЖУ и списком покупок по ценам Пятёрочки, Магнита и Ленты.">
+<title>Меню-План — 500 рецептов, КБЖУ и список покупок под бюджет</title>
+<meta name="description" content="500 рецептов девяти кухонь. Укажите бюджет, цель (диета, ПП, набор массы), аллергии и магазин — сервис составит меню на неделю, месяц или два с расчётом КБЖУ и списком покупок по ценам Пятёрочки, Магнита и Ленты.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,15 +36,16 @@
     <div class="wrap hero-inner">
       <div class="hero-text">
         <div class="badge">Каталог «Пятёрочки» и ещё 4 сети · цены <span id="priceDate"></span></div>
-        <h1>Меню, КБЖУ и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
+        <h1>500 рецептов, КБЖУ и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
         <p class="lead">
-          Выберите цель — диета, поддержание или набор массы, — введите сумму и отметьте аллергии.
-          Сервис соберёт рецепты на неделю, месяц или два месяца так, чтобы закрыть норму белка
-          и клетчатки, посчитает граммовки и выдаст список покупок с ценами.
+          Выберите цель — диета, поддержание или набор массы, — стиль питания и кухню:
+          от домашней до итальянской, азиатской и кавказской. Сервис соберёт меню на неделю,
+          месяц или два так, чтобы закрыть норму белка и клетчатки, и выдаст список покупок с ценами.
         </p>
         <div class="hero-stats">
           <div><b id="statProducts">0</b><span>продуктов с КБЖУ</span></div>
           <div><b id="statRecipes">0</b><span>рецептов</span></div>
+          <div><b id="statCuisines">0</b><span>кухонь мира</span></div>
           <div><b id="statAllerg">0</b><span>групп аллергенов</span></div>
         </div>
         <a class="btn btn-primary btn-lg" href="#planner">Составить меню за 30 секунд</a>
@@ -83,9 +84,23 @@
           </div>
         </div>
 
-        <!-- 2. Бюджет -->
+        <!-- 2. Стиль питания -->
         <div class="field">
-          <label class="field-label"><span class="num">2</span> Бюджет на продукты</label>
+          <label class="field-label"><span class="num">2</span> Стиль питания</label>
+          <p class="hint">«Правильное питание» убирает колбасы, майонез, сладости и жарку в масле. «Постное» — все продукты животного происхождения.</p>
+          <div class="styles" id="styleList"></div>
+        </div>
+
+        <!-- 3. Кухня -->
+        <div class="field">
+          <label class="field-label"><span class="num">3</span> Кухня</label>
+          <p class="hint">Можно выбрать несколько или не выбирать ничего — тогда меню соберётся из всех кухонь.</p>
+          <div class="chips cuisines" id="cuisineList"></div>
+        </div>
+
+        <!-- 4. Бюджет -->
+        <div class="field">
+          <label class="field-label"><span class="num">4</span> Бюджет на продукты</label>
           <div class="budget-row">
             <div class="input-money">
               <input type="number" id="budget" min="500" step="100" value="7000" inputmode="numeric">
@@ -104,7 +119,7 @@
 
         <!-- 3. Период -->
         <div class="field">
-          <label class="field-label"><span class="num">3</span> На какой срок</label>
+          <label class="field-label"><span class="num">5</span> На какой срок</label>
           <div class="chips chips-lg" id="periodChips">
             <button type="button" class="chip active" data-days="7">Неделя<small>7 дней</small></button>
             <button type="button" class="chip" data-days="14">2 недели<small>14 дней</small></button>
@@ -116,7 +131,7 @@
         <!-- 4-5. Люди и приёмы пищи -->
         <div class="field-grid">
           <div class="field">
-            <label class="field-label"><span class="num">4</span> Сколько человек</label>
+            <label class="field-label"><span class="num">6</span> Сколько человек</label>
             <div class="stepper">
               <button type="button" id="peopleMinus" aria-label="Меньше">−</button>
               <div class="stepper-value"><b id="peopleValue">2</b><span>чел.</span></div>
@@ -124,7 +139,7 @@
             </div>
           </div>
           <div class="field">
-            <label class="field-label"><span class="num">5</span> Приёмов пищи в день</label>
+            <label class="field-label"><span class="num">7</span> Приёмов пищи в день</label>
             <div class="chips" id="mealsChips">
               <button type="button" class="chip" data-meals="3">3 <small>завтрак, обед, ужин</small></button>
               <button type="button" class="chip active" data-meals="4">4 <small>+ перекус</small></button>
@@ -134,20 +149,20 @@
 
         <!-- 6. Магазин -->
         <div class="field">
-          <label class="field-label"><span class="num">6</span> Где будете закупаться</label>
+          <label class="field-label"><span class="num">8</span> Где будете закупаться</label>
           <div class="stores" id="storeList"></div>
         </div>
 
         <!-- 7. Аллергии -->
         <div class="field">
-          <label class="field-label"><span class="num">7</span> Аллергии и что исключить</label>
+          <label class="field-label"><span class="num">9</span> Аллергии и что исключить</label>
           <p class="hint">Отмеченные продукты не попадут ни в один рецепт и ни в один пункт списка покупок.</p>
           <div class="chips allergens" id="allergenList"></div>
         </div>
 
         <!-- 8. Дополнительно -->
         <div class="field">
-          <label class="field-label"><span class="num">8</span> Дополнительно</label>
+          <label class="field-label"><span class="num">10</span> Дополнительно</label>
           <div class="switches">
             <label class="switch"><input type="checkbox" id="optVeg"><span class="slider"></span><em>Вегетарианское меню<small>без мяса, птицы и рыбы</small></em></label>
             <label class="switch"><input type="checkbox" id="optNoPork"><span class="slider"></span><em>Без свинины<small>халяль-френдли подбор</small></em></label>
@@ -261,7 +276,7 @@
       <h2 class="section-title">Как это работает</h2>
       <div class="how-grid reveal">
         <div class="how-card"><span class="how-num">1</span><h3>Цель и норма КБЖУ</h3><p>По весу и цели считается норма: калории, белок (1,8 г/кг на диете, 2 г/кг на массе), жиры и клетчатка — 14 г на 1000 ккал.</p></div>
-        <div class="how-card"><span class="how-num">2</span><h3>Фильтр аллергенов</h3><p>Из базы убираются продукты с отмеченными аллергенами, а следом — каждый рецепт, где такой продукт встречался. Подмен не бывает.</p></div>
+        <div class="how-card"><span class="how-num">2</span><h3>Кухня и стиль</h3><p>Выбираете кухню — меню собирается только из её блюд. Стиль «правильное питание» убирает колбасы, майонез и жарку в масле, «постное» — всё животное. Аллергены отсекаются вместе со всеми рецептами, где они есть.</p></div>
         <div class="how-card"><span class="how-num">3</span><h3>Подбор под норму и сумму</h3><p>Для каждого дня перебираются наборы блюд: побеждает тот, что лучше закрывает белок и клетчатку, не вылезая из бюджета. Порции подгоняются под калорийность.</p></div>
         <div class="how-card"><span class="how-num">4</span><h3>Список с ценами</h3><p>Граммовки всех блюд суммируются и округляются до реальных упаковок: не «370 г гречки», а «1 пачка 800 г — 108 ₽».</p></div>
       </div>
@@ -316,7 +331,19 @@
 </div>
 
 <script src="data.js"></script>
+<script src="products2.js"></script>
 <script src="recipes.js"></script>
+<script src="recipes-ru2.js"></script>
+<script src="recipes-it.js"></script>
+<script src="recipes-asia.js"></script>
+<script src="recipes-cauc.js"></script>
+<script src="recipes-med.js"></script>
+<script src="recipes-mex.js"></script>
+<script src="recipes-eu.js"></script>
+<script src="recipes-east.js"></script>
+<script src="recipes-ind.js"></script>
+<script src="recipes-fit.js"></script>
+<script src="recipes-lean.js"></script>
 <script src="app.js"></script>
 <script src="fridge.js"></script>
 </body>
