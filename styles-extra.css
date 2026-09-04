@@ -237,8 +237,52 @@
 .fr-miss { margin-top: 12px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; line-height: 1.5; }
 .fr-miss b { color: var(--gold); }
 
+/* ================= СТРАНИЦА КАТАЛОГА ================= */
+.catalog-hero { background: var(--forest); color: #f4f1ea; padding: 44px 0 52px; position: relative; overflow: hidden; }
+.catalog-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(800px 340px at 88% 0%, rgba(176, 138, 70, .24), transparent 62%);
+}
+.catalog-hero .wrap { position: relative; }
+.catalog-hero .section-title { color: #fff; margin-bottom: 6px; }
+.catalog-hero .section-sub { color: rgba(244, 241, 234, .74); margin-bottom: 26px; }
+.catalog-hero .eyebrow { color: var(--gold-l); }
+.back-link {
+  display: inline-block; font-size: 13.5px; font-weight: 700; color: rgba(244, 241, 234, .6);
+  margin-bottom: 20px; transition: .2s;
+}
+.back-link:hover { color: var(--gold-l); }
+.catalog-stats { display: flex; gap: 40px; flex-wrap: wrap; }
+.catalog-stats > div { position: relative; padding-left: 15px; }
+.catalog-stats > div::before {
+  content: ''; position: absolute; left: 0; top: 3px; bottom: 5px; width: 2px;
+  background: linear-gradient(var(--gold), transparent);
+}
+.catalog-stats b { display: block; font-family: var(--serif); font-size: 27px; font-weight: 500; color: #fff; line-height: 1.15; }
+.catalog-stats span { font-size: 11.5px; color: rgba(244, 241, 234, .55); font-weight: 600; letter-spacing: .04em; }
+
+.catalog-panel {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: 22px; margin-bottom: 22px; box-shadow: var(--shadow-sm);
+  position: sticky; top: 88px; z-index: 20;
+}
+.catalog-sort { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.catalog-sort > span { font-size: 12.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+.catalog-sort .chip { padding: 8px 15px; font-size: 13.5px; }
+.catalog-summary { margin-top: 14px; font-size: 13.5px; color: var(--ink-3); font-weight: 600; }
+.cr-staple {
+  font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--gold);
+  background: var(--gold-bg); border: 1px solid var(--gold-l); padding: 1px 7px;
+  border-radius: 999px; margin-left: 6px; text-transform: uppercase; letter-spacing: .05em;
+}
+.header-nav a.is-current { color: var(--forest); }
+.header-nav a.is-current::after { right: 0; }
+
 /* ================= АДАПТИВ ================= */
 @media (max-width: 980px) {
+  .catalog-panel { position: static; }
+  .catalog-stats { gap: 24px; }
+  .catalog-stats b { font-size: 22px; }
   .fridge { padding: 60px 0; }
   .fridge-card { padding: 22px 18px; }
   .macros-card { padding: 22px 18px; }

@@ -21,9 +21,9 @@
       <span class="logo-text">Меню<span>-План</span></span>
     </a>
     <nav class="header-nav">
+      <a href="about.html">Информация</a>
       <a href="#fridge">Что есть дома</a>
-      <a href="#how">Как это работает</a>
-      <a href="#catalog-info">Каталог и цены</a>
+      <a href="catalog.html">Каталог и цены</a>
       <a class="btn btn-sm btn-primary" href="#planner">Составить меню</a>
     </nav>
   </div>
@@ -60,6 +60,42 @@
         <div class="hc-row hc-more">+ 23 позиции</div>
         <div class="hc-row hc-total"><span>Итого</span><b>6 842 ₽</b></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ================= ХОЛОДИЛЬНИК ================= -->
+  <section id="fridge" class="fridge">
+    <div class="wrap">
+      <span class="eyebrow">Ничего не пропадёт</span>
+      <h2 class="section-title">Что приготовить из остатков</h2>
+      <p class="section-sub">
+        Отметьте, что лежит в холодильнике и в шкафу. Сервис найдёт блюда, которые можно
+        сделать прямо сейчас, и подскажет, где не хватает одного-двух продуктов.
+      </p>
+
+      <div class="fridge-card reveal">
+        <div class="fridge-search">
+          <input type="search" id="fridgeSearch" placeholder="Начните вводить: курица, яйца, гречка…">
+          <button type="button" class="btn btn-ghost btn-sm" id="fridgeClear">Очистить всё</button>
+        </div>
+        <div id="fridgeSuggest" class="fridge-suggest" hidden></div>
+
+        <div class="fridge-selected" id="fridgeSelected"></div>
+
+        <details class="fridge-all">
+          <summary>Показать весь список продуктов</summary>
+          <div id="fridgeAll"></div>
+        </details>
+
+        <label class="switch fridge-switch">
+          <input type="checkbox" id="fridgeStaples" checked><span class="slider"></span>
+          <em>Соль, специи, масло, мука есть<small>не считать их недостающими</small></em>
+        </label>
+
+        <button type="button" class="btn btn-primary btn-xl btn-block" id="fridgeBtn">Найти блюда</button>
+      </div>
+
+      <div id="fridgeResult"></div>
     </div>
   </section>
 
@@ -233,42 +269,6 @@
     </div>
   </section>
 
-  <!-- ================= ХОЛОДИЛЬНИК ================= -->
-  <section id="fridge" class="fridge">
-    <div class="wrap">
-      <span class="eyebrow">Ничего не пропадёт</span>
-      <h2 class="section-title">Что приготовить из остатков</h2>
-      <p class="section-sub">
-        Отметьте, что лежит в холодильнике и в шкафу. Сервис найдёт блюда, которые можно
-        сделать прямо сейчас, и подскажет, где не хватает одного-двух продуктов.
-      </p>
-
-      <div class="fridge-card reveal">
-        <div class="fridge-search">
-          <input type="search" id="fridgeSearch" placeholder="Начните вводить: курица, яйца, гречка…">
-          <button type="button" class="btn btn-ghost btn-sm" id="fridgeClear">Очистить всё</button>
-        </div>
-        <div id="fridgeSuggest" class="fridge-suggest" hidden></div>
-
-        <div class="fridge-selected" id="fridgeSelected"></div>
-
-        <details class="fridge-all">
-          <summary>Показать весь список продуктов</summary>
-          <div id="fridgeAll"></div>
-        </details>
-
-        <label class="switch fridge-switch">
-          <input type="checkbox" id="fridgeStaples" checked><span class="slider"></span>
-          <em>Соль, специи, масло, мука есть<small>не считать их недостающими</small></em>
-        </label>
-
-        <button type="button" class="btn btn-primary btn-xl btn-block" id="fridgeBtn">Найти блюда</button>
-      </div>
-
-      <div id="fridgeResult"></div>
-    </div>
-  </section>
-
   <!-- ================= КАК ЭТО РАБОТАЕТ ================= -->
   <section id="how" class="how">
     <div class="wrap">
@@ -283,27 +283,6 @@
     </div>
   </section>
 
-  <!-- ================= КАТАЛОГ ================= -->
-  <section id="catalog-info" class="catalog">
-    <div class="wrap">
-      <span class="eyebrow">Прозрачно</span>
-      <h2 class="section-title">Каталог, цены и КБЖУ</h2>
-      <p class="section-sub">Полный список продуктов, из которых собираются рецепты. Цена указана за килограмм или литр, КБЖУ — на 100 г.</p>
-      <div class="catalog-controls">
-        <input type="search" id="catalogSearch" placeholder="Поиск: гречка, творог, минтай…">
-        <select id="catalogStore"></select>
-      </div>
-      <div id="catalogTable"></div>
-      <p class="disclaimer">
-        <b>Важно про цены.</b> У «Пятёрочки» и других сетей нет открытого API для сторонних сайтов,
-        поэтому здесь используется собственный прайс-лист — усреднённые полочные цены сети
-        (<span class="pd"></span>), а для остальных магазинов — коэффициент к нему. Реальный чек
-        отличается из-за акций, региона и конкретного магазина: считайте итог оценкой ±10–15 %.
-        Весь прайс лежит в одном файле <code>data.js</code> и обновляется за пару минут.
-      </p>
-    </div>
-  </section>
-
 </main>
 
 <footer class="site-footer">
@@ -314,9 +293,9 @@
     </div>
     <div class="footer-links">
       <a href="#planner">Составить меню</a>
+      <a href="about.html">Информация</a>
       <a href="#fridge">Что есть дома</a>
-      <a href="#how">Как это работает</a>
-      <a href="#catalog-info">Каталог и цены</a>
+      <a href="catalog.html">Каталог и цены</a>
     </div>
   </div>
 </footer>

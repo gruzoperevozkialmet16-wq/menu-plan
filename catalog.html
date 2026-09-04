@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Каталог продуктов и цены — Меню-План</title>
+<meta name="description" content="Каталог из 211 продуктов с ценами Пятёрочки, Магнита, Ленты, Перекрёстка и Дикси, КБЖУ на 100 г и метками аллергенов.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles-extra.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="logo" href="./">
+      <span class="logo-mark">🥗</span>
+      <span class="logo-text">Меню<span>-План</span></span>
+    </a>
+    <nav class="header-nav">
+      <a href="about.html">Информация</a>
+      <a href="./#fridge">Что есть дома</a>
+      <a href="catalog.html" class="is-current">Каталог и цены</a>
+      <a class="btn btn-sm btn-primary" href="./#planner">Составить меню</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="catalog-hero">
+    <div class="wrap">
+      <a class="back-link" href="./">← На главную</a>
+      <span class="eyebrow">Прозрачно</span>
+      <h1 class="section-title">Каталог продуктов и цены</h1>
+      <p class="section-sub">
+        Из этих продуктов собираются все 505 рецептов. Цена указана за килограмм или литр,
+        КБЖУ — на 100 граммов. Переключите магазин, чтобы увидеть цены его прайса.
+      </p>
+      <div class="catalog-stats">
+        <div><b id="statProducts">0</b><span>продуктов</span></div>
+        <div><b id="statCategories">0</b><span>категорий</span></div>
+        <div><b id="statStores">0</b><span>сетей магазинов</span></div>
+        <div><b class="pd"></b><span>дата прайса</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalog">
+    <div class="wrap">
+      <div class="catalog-panel">
+        <div class="catalog-controls">
+          <input type="search" id="catalogSearch" placeholder="Поиск: гречка, творог, минтай…">
+          <select id="catalogStore" aria-label="Магазин"></select>
+          <select id="catalogCategory" aria-label="Категория"></select>
+          <select id="catalogAllergen" aria-label="Аллерген"></select>
+          <button type="button" class="btn btn-ghost btn-sm" id="catalogReset">Сбросить</button>
+        </div>
+        <div class="catalog-sort">
+          <span>Сортировка:</span>
+          <div class="chips" id="catalogSort">
+            <button type="button" class="chip active" data-sort="name">По категориям</button>
+            <button type="button" class="chip" data-sort="price-asc">Сначала дешёвые</button>
+            <button type="button" class="chip" data-sort="price-desc">Сначала дорогие</button>
+            <button type="button" class="chip" data-sort="protein">Больше белка</button>
+            <button type="button" class="chip" data-sort="kcal">Меньше калорий</button>
+          </div>
+        </div>
+        <div class="catalog-summary" id="catalogSummary"></div>
+      </div>
+
+      <div id="catalogTable"></div>
+
+      <p class="disclaimer">
+        <b>Важно про цены.</b> У «Пятёрочки» и других сетей нет открытого API для сторонних
+        сайтов, поэтому здесь используется собственный прайс-лист — усреднённые полочные цены
+        сети (<span class="pd"></span>), а для остальных магазинов — коэффициент к нему.
+        Реальный чек отличается из-за акций, региона и конкретного магазина: считайте итог
+        оценкой ±10–15 %. Весь прайс лежит в одном файле <code>data.js</code>
+        (и <code>products2.js</code>) и обновляется за пару минут.
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div>
+      <div class="logo"><span class="logo-mark">🥗</span><span class="logo-text">Меню<span>-План</span></span></div>
+      <p>Планировщик питания под бюджет и КБЖУ. Работает полностью в браузере, данные никуда не уходят.</p>
+    </div>
+    <div class="footer-links">
+      <a href="./#planner">Составить меню</a>
+      <a href="about.html">Информация</a>
+      <a href="./#fridge">Что есть дома</a>
+      <a href="catalog.html">Каталог и цены</a>
+    </div>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="products2.js"></script>
+<script src="catalog.js"></script>
+</body>
+</html>

@@ -1138,38 +1138,6 @@ function initResultActions() {
 }
 
 /* ============================================================
-   КАТАЛОГ
-   ============================================================ */
-function renderCatalog() {
-  const k = storeK($('#catalogStore').value);
-  const q = $('#catalogSearch').value.trim().toLowerCase();
-  let html = '';
-  CATEGORIES.forEach(cat => {
-    const list = PRODUCTS.filter(p => p.c === cat.id && (!q || p.n.toLowerCase().includes(q)));
-    if (!list.length) return;
-    html += `<div class="cat-block"><h4>${cat.icon} ${cat.name} <span class="cat-count">· ${list.length}</span></h4>
-      ${list.map(p => `<div class="cat-row">
-        <span class="cr-name">${p.n}</span>
-        <span class="cr-tags">${p.a.map(a => {
-          const A = ALLERGENS.find(x => x.id === a);
-          return A ? `<span class="cr-tag">${A.icon} ${A.name}</span>` : '';
-        }).join('')}</span>
-        <span class="cr-macro">${p.kc} ккал · Б ${p.pr} · Ж ${p.fa} · У ${p.ca} · кл. ${p.fi}</span>
-        <span class="cr-pack">${p.packName}</span>
-        <span class="cr-price">${money(p.price * k)}<small>за кг/л</small></span>
-      </div>`).join('')}</div>`;
-  });
-  $('#catalogTable').innerHTML = html || '<p class="section-sub">Ничего не нашлось.</p>';
-}
-
-function initCatalog() {
-  $('#catalogStore').innerHTML = STORES.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  $('#catalogStore').addEventListener('change', renderCatalog);
-  $('#catalogSearch').addEventListener('input', renderCatalog);
-  renderCatalog();
-}
-
-/* ============================================================
    ХРАНЕНИЕ
    ============================================================ */
 const LS_SET = 'menuplan_settings_v2';
@@ -1276,7 +1244,6 @@ function loadPlan() {
   initForm();
   applySettingsToForm();
   initResultActions();
-  initCatalog();
 
   $('#statProducts').textContent = PRODUCTS.length;
   $('#statRecipes').textContent = RECIPES.length;
