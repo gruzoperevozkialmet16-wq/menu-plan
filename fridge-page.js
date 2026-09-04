@@ -23,7 +23,7 @@ function plural(n, one, few, many) {
 
 /* ---------- настройки, общие с планировщиком ---------- */
 const state = {
-  store: 'p5', excluded: [], veg: false, noPork: false,
+  goal: 'normal', store: 'p5', excluded: [], veg: false, noPork: false,
   persons: [{ type: 'adult', weight: 70 }, { type: 'adult', weight: 70 }],
 };
 try {
@@ -31,6 +31,7 @@ try {
   if (raw) {
     const d = JSON.parse(raw);
     if (d.store) state.store = d.store;
+    if (d.goal) state.goal = d.goal;
     if (Array.isArray(d.excluded)) state.excluded = d.excluded;
     state.veg = !!d.veg;
     state.noPork = !!d.noPork;
@@ -43,6 +44,69 @@ try {
 } catch (e) { /* приватный режим */ }
 
 function peopleCount() { return state.persons.length; }
+
+/* ---------- нормы едоков (та же логика, что в планировщике) ---------- */
+function sexOf(p) { return SEXES.find(s => s.id === (p.sex || 'm')) || SEXES[0]; }
+function activityOf(p) { return ACTIVITY.find(a => a.id === (p.activity || 'light')) || ACTIVITY[1]; }
+function childNorm(age) { return CHILD_NORMS.find(n => age <= n.max) || CHILD_NORMS[CHILD_NORMS.length - 1]; }
+
+function personTargets(p) {
+  if (p.type === 'child') {
+    const n = childNorm(p.age || 7);
+    return { kcal: p.sex === 'f' ? n.kcalF : n.kcalM, isChild: true, ageLabel: n.label };
+  }
+  const g = GOALS.find(x => x.id === (state.goal || 'normal')) || GOALS[1];
+  const w = p.weight || 70, h = p.height || sexOf(p).height, age = p.age || 30;
+  const base = 10 * w + 6.25 * h - 5 * age + (p.sex === 'f' ? -161 : 5);
+  const tdee = base * activityOf(p).k;
+  return { kcal: Math.max(Math.round(base * 1.05), Math.round(tdee * g.kcalFactor)), isChild: false };
+}
+
+function personName(p) {
+  const sx = sexOf(p);
+  if (p.type === 'child') return sx.childName + (p.age ? ', ' + p.age + ' ' + plural(p.age, 'год', 'года', 'лет') : '');
+  return sx.name + (p.weight ? ', ' + p.weight + ' кг' : '');
+}
+
+/* Делим готовое блюдо между едоками по их суточной норме калорий */
+function servingSplitHtml(r) {
+  const per = state.persons.map(p => ({ p, t: personTargets(p) }));
+  const totalKcal = per.reduce((s, x) => s + x.t.kcal, 0);
+  if (!per.length || !totalKcal) return '';
+
+  let grams = 0;
+  const mac = { kc: 0, pr: 0 };
+  r.ing.forEach(([id, g]) => {
+    const pr = PRODUCT_BY_ID[id], q = g * PORTION * peopleCount();
+    grams += q;
+    mac.kc += q * pr.kc / 100;
+    mac.pr += q * pr.pr / 100;
+  });
+
+  return `
+    <div class="m-sec">Кому сколько положить</div>
+    <div class="serving-split">
+      ${per.map(x => {
+        const share = x.t.kcal / totalKcal;
+        const icon = x.t.isChild ? (x.p.sex === 'f' ? '👧' : '👦') : sexOf(x.p).icon;
+        return `<div class="ss-row${x.t.isChild ? ' is-child' : ''}">
+          <span class="ss-who">${icon} ${personName(x.p)}</span>
+          <b class="ss-g">${Math.round(grams * share)} г</b>
+          <span class="ss-kc">${num(mac.kc * share)} ккал</span>
+          <span class="ss-pr">Б ${num(mac.pr * share)} г</span>
+        </div>`;
+      }).join('')}
+      <div class="ss-total">
+        <span>Всего готового блюда</span>
+        <b>${grams >= 1000 ? kgLabel(grams / 1000) : Math.round(grams) + ' г'}</b>
+        <span>${num(mac.kc)} ккал</span>
+        <span>Б ${num(mac.pr)} г</span>
+      </div>
+    </div>
+    <p class="ss-note">Порции разделены по суточной норме каждого. Вес — по сырым продуктам:
+    крупы и макароны при варке прибавляют, мясо и овощи немного теряют.
+    Состав семьи задаётся <a href="./#planner">в планировщике</a>.</p>`;
+}
 
 /* ---------- расчёты по рецептам ---------- */
 const RECIPE_BY_ID = {};
@@ -92,6 +156,7 @@ function openRecipe(id) {
       <div><b>${num(mac.ca)} г</b><span>углеводы</span></div>
       <div><b>${num(mac.fi)} г</b><span>клетчатка</span></div>
     </div>
+    ${servingSplitHtml(r)}
     <div class="m-sec">Продукты на ${n} ${plural(n, 'человека', 'человек', 'человек')}</div>
     ${r.ing.map(([pid, g]) => {
       const p = PRODUCT_BY_ID[pid];

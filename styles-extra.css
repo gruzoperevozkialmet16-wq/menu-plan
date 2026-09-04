@@ -452,3 +452,65 @@
 }
 .person-activity select:focus { border-color: var(--gold); background: #fff; }
 .person-title span { line-height: 1.4; }
+
+/* ================= КОМУ СКОЛЬКО ПОЛОЖИТЬ ================= */
+.serving-split {
+  border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--cream);
+}
+.ss-row, .ss-total {
+  display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: baseline;
+  padding: 11px 16px; border-bottom: 1px solid var(--line-2); font-size: 14px;
+}
+.ss-row:last-of-type { border-bottom: 0; }
+.ss-row.is-child { background: var(--gold-bg); }
+.ss-who { font-weight: 700; }
+.ss-g { font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--forest); }
+.ss-kc, .ss-pr { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+.ss-total {
+  background: var(--forest); color: #f4f1ea; border-bottom: 0; font-weight: 700;
+}
+.ss-total b { font-family: var(--serif); font-size: 17px; color: var(--gold-l); }
+.ss-total span { font-size: 12.5px; color: rgba(244, 241, 234, .7); }
+.ss-note { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+.ss-note a { color: var(--gold); font-weight: 700; }
+
+/* добавки к приёмам пищи в карточке дня */
+.day-boost span { font-size: 11px; }
+
+/* ================= ПРАВОВОЙ БЛОК ================= */
+.legal {
+  background: var(--forest); border-top: 1px solid rgba(229, 211, 172, .18); padding: 34px 0 40px;
+}
+.legal-box {
+  border: 1px solid rgba(229, 211, 172, .28); border-radius: var(--r-xl);
+  padding: 26px 30px; display: flex; gap: 20px; align-items: flex-start;
+  background: rgba(255, 255, 255, .04);
+}
+.legal-ic {
+  width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: rgba(229, 211, 172, .12); border: 1px solid rgba(229, 211, 172, .3); font-size: 20px;
+}
+.legal-box h4 {
+  font-family: var(--serif); font-size: 18px; font-weight: 500; color: #fff; margin-bottom: 10px;
+}
+.legal-box p { font-size: 13.5px; line-height: 1.7; color: rgba(244, 241, 234, .68); }
+.legal-box p + p { margin-top: 9px; }
+.legal-box b { color: var(--gold-l); font-weight: 700; }
+.legal-copy {
+  margin-top: 20px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  font-size: 12.5px; color: rgba(244, 241, 234, .5); font-weight: 600;
+}
+.legal-copy a { color: rgba(244, 241, 234, .7); border-bottom: 1px solid rgba(229, 211, 172, .3); }
+.legal-copy a:hover { color: var(--gold-l); }
+
+@media (max-width: 560px) {
+  .ss-row, .ss-total { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .ss-kc, .ss-pr { grid-column: span 1; }
+  .legal-box { flex-direction: column; padding: 22px 20px; }
+}
+
+.hint-warn {
+  background: var(--gold-bg); border: 1px solid var(--gold-l); border-radius: var(--r-md);
+  padding: 12px 16px; color: #7a5a1c !important;
+}
+.hint-warn b { color: #8a3f2b; }

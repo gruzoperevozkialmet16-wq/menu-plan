@@ -201,18 +201,54 @@ function buildPool() {
 }
 
 function activeMeals() {
-  return state.mealsCount === 4 ? ['breakfast', 'lunch', 'dinner', 'snack']
-    : ['breakfast', 'lunch', 'dinner'];
+  /* при одном приёме в день это основная еда — ужин; при двух добавляется обед */
+  if (state.mealsCount === 1) return ['dinner'];
+  if (state.mealsCount === 2) return ['lunch', 'dinner'];
+  if (state.mealsCount === 3) return ['breakfast', 'lunch', 'dinner'];
+  return ['breakfast', 'lunch', 'dinner', 'snack'];
+}
+
+/* Сколько базовых порций приходится на человека при таком числе приёмов.
+   При одном приёме в день тарелка закономерно больше, и штрафовать за это
+   размером порции нельзя — иначе алгоритм не соберёт дневную норму. */
+function expectedPortion() {
+  return 4 / Math.max(1, state.mealsCount);
 }
 
 /* ---------- добор белка и клетчатки ----------
    Одними блюдами норму белка на диете и на массе часто не закрыть.
    Поэтому к дню добавляется «добавка»: творог, яйца, грудка, отруби —
    ровно столько, сколько нужно, и только если остаётся запас по калориям. */
-const BOOST_PROTEIN = ['cottage_cheese', 'chicken_fillet', 'eggs', 'canned_tuna', 'turkey_fillet',
-  'kefir', 'cheese_russian', 'tofu', 'lentils', 'chickpeas', 'peas_dry', 'red_beans',
-  'white_beans_canned', 'peanut', 'milk'];
-const BOOST_FIBER = ['bran', 'cabbage', 'carrot', 'apple', 'broccoli_frozen', 'beans_canned', 'dried_apricots'];
+/* Добавки к рациону. step — разумная разовая порция на человека,
+   max — сколько максимум можно съесть за день, meal — к какому приёму
+   логично добавить. Без этих границ добор превращался в «800 г гороха». */
+const BOOST_PROTEIN = [
+  { id: 'cottage_cheese',    step: 100, max: 250, meal: 'breakfast' },
+  { id: 'eggs',              step: 60,  max: 180, meal: 'breakfast' },
+  { id: 'chicken_fillet',    step: 80,  max: 200, meal: 'dinner' },
+  { id: 'greek_yogurt',      step: 150, max: 300, meal: 'snack' },
+  { id: 'kefir',             step: 200, max: 500, meal: 'snack' },
+  { id: 'turkey_fillet',     step: 80,  max: 200, meal: 'dinner' },
+  { id: 'canned_tuna',       step: 60,  max: 120, meal: 'lunch' },
+  { id: 'tofu',              step: 80,  max: 200, meal: 'lunch' },
+  { id: 'cheese_russian',    step: 30,  max: 60,  meal: 'snack' },
+  { id: 'milk',              step: 200, max: 400, meal: 'breakfast' },
+  { id: 'lentils',           step: 30,  max: 60,  meal: 'lunch' },
+  { id: 'chickpeas',         step: 30,  max: 60,  meal: 'lunch' },
+  { id: 'peas_dry',          step: 30,  max: 60,  meal: 'lunch' },
+  { id: 'red_beans',         step: 30,  max: 60,  meal: 'lunch' },
+  { id: 'white_beans_canned',step: 80,  max: 160, meal: 'lunch' },
+  { id: 'peanut',            step: 20,  max: 40,  meal: 'snack' },
+];
+const BOOST_FIBER = [
+  { id: 'bran',            step: 15,  max: 30,  meal: 'breakfast' },
+  { id: 'apple',           step: 150, max: 300, meal: 'snack' },
+  { id: 'carrot',          step: 100, max: 200, meal: 'snack' },
+  { id: 'cabbage',         step: 120, max: 240, meal: 'dinner' },
+  { id: 'broccoli_frozen', step: 120, max: 240, meal: 'dinner' },
+  { id: 'beans_canned',    step: 80,  max: 160, meal: 'lunch' },
+  { id: 'dried_apricots',  step: 40,  max: 80,  meal: 'snack' },
+];
 
 function productAllowed(p) {
   if (!p) return false;
@@ -245,43 +281,78 @@ function kcalRoomFactor() {
 function buildBoost(dm, T) {
   const boost = [];
   let pr = dm.pr, fi = dm.fi, kc = dm.kc;
+  const N = Math.max(1, T.people);
   const room = () => T.kcal * kcalRoomFactor() - kc;
-  const add = (p, g) => {
+
+  const add = (item, p, g) => {
     const ex = boost.find(b => b.id === p.id);
-    if (ex) ex.g += g; else boost.push({ id: p.id, g });
+    if (ex) ex.g += g; else boost.push({ id: p.id, g, meal: item.meal });
     kc += p.kc * g / 100; pr += p.pr * g / 100; fi += p.fi * g / 100;
   };
+  const takenOf = id => { const b = boost.find(x => x.id === id); return b ? b.g : 0; };
 
-  /* белок: берём постные продукты, а среди них — самые дешёвые за грамм белка.
-     На диете планка «постности» выше: лишние калории там критичнее. */
+  /* Можно ли добавить ещё порцию этого продукта: не превышаем ни дневной
+     максимум на человека, ни калорийный запас. */
+  const canAdd = item => {
+    const p = PRODUCT_BY_ID[item.id];
+    if (!p || !productAllowed(p)) return null;
+    const step = item.step * N;
+    if (takenOf(item.id) + step > item.max * N + 0.1) return null;
+    if (p.kc * step / 100 > room()) return null;
+    return { p, step };
+  };
+
+  /* Белок: сначала постные продукты, среди них — самые дешёвые за грамм белка.
+     Порции идут по кругу, чтобы вместо горы одного продукта получился
+     нормальный набор: творог утром, грудка вечером, кефир на перекус. */
   const lean = state.dietStyle === 'lean' ? 0.065 : (state.goal === 'diet' ? 0.09 : 0.05);
-  const all = BOOST_PROTEIN.map(id => PRODUCT_BY_ID[id]).filter(p => productAllowed(p) && p.pr > 5);
-  let prList = all.filter(p => p.pr / Math.max(p.kc, 1) >= lean);
-  if (!prList.length) prList = all;
-  prList.sort((a, b) => (a.price / a.pr) - (b.price / b.pr));
+  const allPr = BOOST_PROTEIN.filter(x => {
+    const p = PRODUCT_BY_ID[x.id];
+    return p && productAllowed(p) && p.pr > 5;
+  });
+  let prList = allPr.filter(x => {
+    const p = PRODUCT_BY_ID[x.id];
+    return p.pr / Math.max(p.kc, 1) >= lean;
+  });
+  if (!prList.length) prList = allPr;
+  prList.sort((a, b) => {
+    const pa = PRODUCT_BY_ID[a.id], pb = PRODUCT_BY_ID[b.id];
+    return (pa.price / pa.pr) - (pb.price / pb.pr);
+  });
+
   let guard = 0;
-  while (pr < T.protein * 0.98 && room() > 50 && guard < 10) {
+  while (pr < T.protein * 0.98 && room() > 50 && guard < 40) {
     guard++;
-    const g = 80;
-    const p = prList.find(x => x.kc * g / 100 <= room() && x.pr > 5);
-    if (!p) break;
-    add(p, g);
+    /* по кругу: каждый раз берём продукт, которого пока взяли меньше всего порций */
+    const options = prList.map(x => ({ x, can: canAdd(x) })).filter(o => o.can);
+    if (!options.length) break;
+    options.sort((a, b) =>
+      (takenOf(a.x.id) / a.x.step) - (takenOf(b.x.id) / b.x.step));
+    const pick = options[0];
+    add(pick.x, pick.can.p, pick.can.step);
   }
 
-  /* клетчатка: овощи и отруби почти не тратят калорийный запас */
-  const fiList = BOOST_FIBER.map(id => PRODUCT_BY_ID[id]).filter(productAllowed)
-    .sort((a, b) => (b.fi / Math.max(b.kc, 1)) - (a.fi / Math.max(a.kc, 1)));
+  /* Клетчатка: овощи, фрукты и отруби — калорий почти не добавляют */
+  const fiList = BOOST_FIBER.filter(x => {
+    const p = PRODUCT_BY_ID[x.id];
+    return p && productAllowed(p) && p.fi > 1.5;
+  }).sort((a, b) => {
+    const pa = PRODUCT_BY_ID[a.id], pb = PRODUCT_BY_ID[b.id];
+    return (pb.fi / Math.max(pb.kc, 1)) - (pa.fi / Math.max(pa.kc, 1));
+  });
+
   guard = 0;
-  while (fi < T.fiber * 0.98 && room() > 30 && guard < 10) {
+  while (fi < T.fiber * 0.98 && room() > 30 && guard < 40) {
     guard++;
-    const p = fiList.find(x => x.fi > 1.5);
-    if (!p) break;
-    const g = p.id === 'bran' ? 25 : 120;
-    if (p.kc * g / 100 > room()) break;
-    add(p, g);
+    const options = fiList.map(x => ({ x, can: canAdd(x) })).filter(o => o.can);
+    if (!options.length) break;
+    options.sort((a, b) =>
+      (takenOf(a.x.id) / a.x.step) - (takenOf(b.x.id) / b.x.step));
+    const pick = options[0];
+    add(pick.x, pick.can.p, pick.can.step);
   }
 
-  return boost.map(b => ({ id: b.id, g: Math.round(b.g) }));
+  return boost.map(b => ({ id: b.id, g: Math.round(b.g), meal: b.meal }));
 }
 
 function boostMacro(boost) {
@@ -366,11 +437,13 @@ function buildMenu(pool, lvl, seed, T) {
          (примерно 6 ккал на грамм белка из творога, грудки, яиц) и слегка
          уменьшаем порции — так и норма белка закрыта, и калории не превышены. */
       const N = Math.max(1, T.people);
-      let scale = clamp(T.kcal / t.kc, 0.6 * N, 2.0 * N);
+      const exp = expectedPortion();
+      const lo = 0.55 * exp * N, hi = 2.2 * exp * N;
+      let scale = clamp(T.kcal / t.kc, lo, hi);
       const prDeficit = T.protein - t.pr * scale;
       if (prDeficit > 0) {
         const reserve = Math.min(T.kcal * 0.42, prDeficit * kcalPerGramProtein());
-        scale = clamp((T.kcal - reserve) / t.kc, 0.6 * N, 2.0 * N);
+        scale = clamp((T.kcal - reserve) / t.kc, lo, hi);
       }
       const pr = t.pr * scale, fi = t.fi * scale, fa = t.fa * scale, cost = t.cost * scale;
 
@@ -385,7 +458,7 @@ function buildMenu(pool, lvl, seed, T) {
         need(pr, T.protein) * 140 + over(pr, T.protein * 1.4) * 25 +
         need(fi, T.fiber) * 90 + over(fi, T.fiber * 1.7) * 10 +
         over(fa, T.fat * 1.6) * 30 +
-        Math.abs(scale / Math.max(1, T.people) - 1) * 25 + meatPenalty +
+        Math.abs(scale / Math.max(1, T.people) / expectedPortion() - 1) * 25 + meatPenalty +
         (refCost > 0 ? over(cost, refCost) * 35 : 0);
 
       if (!best || score < best.score) best = { picked, scale, score, t };
@@ -631,15 +704,12 @@ function peopleLabel() {
   return parts.join(' и ') || 'никого';
 }
 
-function personName(p, i) {
+function personName(p) {
+  const sx = sexOf(p);
   if (p.type === 'child') {
-    const kids = state.persons.filter(x => x.type === 'child');
-    const n = kids.indexOf(p) + 1;
-    return 'Ребёнок' + (kids.length > 1 ? ' ' + n : '') + (p.age ? ', ' + p.age + ' ' + plural(p.age, 'год', 'года', 'лет') : '');
+    return sx.childName + (p.age ? ', ' + p.age + ' ' + plural(p.age, 'год', 'года', 'лет') : '');
   }
-  const ad = state.persons.filter(x => x.type === 'adult');
-  const n = ad.indexOf(p) + 1;
-  return 'Взрослый' + (ad.length > 1 ? ' ' + n : '') + (p.weight ? ', ' + p.weight + ' кг' : '');
+  return sx.name + (p.weight ? ', ' + p.weight + ' кг' : '');
 }
 
 /* Блок КБЖУ: сначала разбивка по едокам, затем итог по семье */
@@ -783,8 +853,16 @@ function renderMenu() {
           </div>`;
         }).join('')}
         ${(day.boost && day.boost.length) ? `<div class="day-boost">
-          <b>+ добор до нормы</b>
-          ${day.boost.map(b => `<span>${PRODUCT_BY_ID[b.id].n} ${b.g} г</span>`).join('')}
+          <b>Добавить к приёмам пищи</b>
+          ${day.boost.map(b => {
+            const p = PRODUCT_BY_ID[b.id];
+            const info = MEALS.find(x => x.id === (b.meal || 'snack'));
+            const per = b.g / Math.max(1, peopleCount());
+            const label = p.id === 'eggs'
+              ? Math.round(per / 60) + ' ' + plural(Math.round(per / 60), 'яйцо', 'яйца', 'яиц')
+              : (per >= 1000 ? kgLabel(per / 1000) : Math.round(per) + ' г');
+            return `<span title="на одного человека">${info.icon} ${p.n} — ${label}</span>`;
+          }).join('')}
         </div>` : ''}
       </div>`;
     }).join('');
@@ -1036,6 +1114,58 @@ function renderRecipesTab() {
       </div>`).join('')}</div>`;
 }
 
+/* ---------- кому сколько положить ----------
+   Блюдо готовится на всю семью, а нормы у всех разные. Делим готовое
+   блюдо пропорционально суточной норме калорий каждого едока. */
+function servingSplit(r, scale) {
+  const T = targets();
+  let grams = 0;
+  const mac = { kc: 0, pr: 0, fa: 0, ca: 0, fi: 0 };
+  r.ing.forEach(([id, g]) => {
+    const p = PRODUCT_BY_ID[id], q = g * PORTION * scale;
+    grams += q;
+    mac.kc += q * p.kc / 100; mac.pr += q * p.pr / 100;
+    mac.fa += q * p.fa / 100; mac.ca += q * p.ca / 100; mac.fi += q * p.fi / 100;
+  });
+  const rows = (T.per || []).map((x, i) => {
+    const share = T.kcal > 0 ? x.t.kcal / T.kcal : 1 / Math.max(1, T.people);
+    return {
+      name: personName(x.person, i),
+      icon: x.t.isChild ? (x.person.sex === 'f' ? '👧' : '👦') : sexOf(x.person).icon,
+      isChild: x.t.isChild,
+      share,
+      grams: grams * share,
+      kc: mac.kc * share,
+      pr: mac.pr * share,
+    };
+  });
+  return { rows, grams, mac };
+}
+
+function servingSplitHtml(r, scale) {
+  const s = servingSplit(r, scale);
+  if (!s.rows.length) return '';
+  return `
+    <div class="m-sec">Кому сколько положить</div>
+    <div class="serving-split">
+      ${s.rows.map(x => `<div class="ss-row${x.isChild ? ' is-child' : ''}">
+        <span class="ss-who">${x.icon} ${x.name}</span>
+        <b class="ss-g">${Math.round(x.grams)} г</b>
+        <span class="ss-kc">${num(x.kc)} ккал</span>
+        <span class="ss-pr">Б ${num(x.pr)} г</span>
+      </div>`).join('')}
+      <div class="ss-total">
+        <span>Всего готового блюда</span>
+        <b>${s.grams >= 1000 ? kgLabel(s.grams / 1000) : Math.round(s.grams) + ' г'}</b>
+        <span>${num(s.mac.kc)} ккал</span>
+        <span>Б ${num(s.mac.pr)} г</span>
+      </div>
+    </div>
+    <p class="ss-note">Порции разделены по суточной норме каждого: кому нужно больше калорий,
+    тому и тарелка больше. Вес — по сырым продуктам: крупы и макароны при варке прибавляют,
+    мясо и овощи немного теряют.</p>`;
+}
+
 function openRecipe(id) {
   const r = RECIPE_BY_ID[id];
   if (!r) return;
@@ -1055,12 +1185,13 @@ function openRecipe(id) {
       <span>💸 ${money(recipeCost(r, k) * scale)} на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')}</span>
     </div>
     <div class="m-macro">
-      <div><b>${num(mac.kc * scale)}</b><span>ккал</span></div>
+      <div><b>${num(mac.kc * scale)}</b><span>ккал всего</span></div>
       <div><b>${num(mac.pr * scale)} г</b><span>белки</span></div>
       <div><b>${num(mac.fa * scale)} г</b><span>жиры</span></div>
       <div><b>${num(mac.ca * scale)} г</b><span>углеводы</span></div>
       <div><b>${num(mac.fi * scale)} г</b><span>клетчатка</span></div>
     </div>
+    ${servingSplitHtml(r, scale)}
     <div class="m-sec">Продукты на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')} — порции под ваши нормы КБЖУ</div>
     ${r.ing.map(([pid, g]) => {
       const p = PRODUCT_BY_ID[pid];
@@ -1229,6 +1360,7 @@ function initForm() {
   $$('#mealsChips .chip').forEach(c => c.addEventListener('click', () => {
     state.mealsCount = +c.dataset.meals;
     $$('#mealsChips .chip').forEach(x => x.classList.toggle('active', x === c));
+    updateMealsHint();
     saveSettings();
   }));
 
@@ -1351,6 +1483,28 @@ function renderPersons() {
 
   $('#kidsNote').hidden = !childCount();
   $('#peopleSummary').textContent = peopleLabel();
+  updateMealsHint();
+}
+
+/* Подсказка под выбором числа приёмов пищи */
+function updateMealsHint() {
+  const el = $('#mealsHint');
+  if (!el) return;
+  const kids = childCount();
+  if (state.mealsCount === 1) {
+    el.innerHTML = 'Вся суточная норма в один приём — это режим OMAD. Порция получится очень большой, ' +
+      'и такой график подходит не всем: при гастрите, диабете и во время беременности так питаться нельзя.' +
+      (kids ? ' <b>Детям один приём в день не подходит категорически</b> — им нужно 4–5 раз.' : '');
+  } else if (state.mealsCount === 2) {
+    el.innerHTML = 'Обед и ужин без завтрака — вариант интервального питания. Порции будут крупными, ' +
+      'следите за самочувствием.' +
+      (kids ? ' <b>Детям двух приёмов мало</b> — им нужно 4–5 раз в день.' : '');
+  } else if (state.mealsCount === 3) {
+    el.textContent = 'Классический режим: завтрак, обед и ужин.';
+  } else {
+    el.textContent = 'Три основных приёма и перекус — так проще набрать норму и не переедать за раз.';
+  }
+  el.classList.toggle('hint-warn', state.mealsCount < 3);
 }
 
 function syncCuisineChips() {
@@ -1404,6 +1558,7 @@ function applySettingsToForm() {
   $('#optStaples').checked = state.staplesOwned;
   updateGoalNumbers();
   updateStyleCounts();
+  updateMealsHint();
   updateBudgetHint();
 }
 
