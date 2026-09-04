@@ -1182,9 +1182,44 @@ function updateBudgetHint() {
   }
 }
 
+/* Если план уже показан, а настройки изменились — пересобираем его сразу,
+   без экрана загрузки. Иначе на экране оставался бы результат от прежних
+   настроек: выбрал «любые блюда», а меню всё ещё постное. */
+let resyncTimer = null;
+function resyncPlan() {
+  if (!state.plan) return;
+  clearTimeout(resyncTimer);
+  resyncTimer = setTimeout(() => {
+    const res = generatePlan(Date.now() % 100000);
+    const el = $('#notice');
+    if (res.error) {
+      state.plan = null;
+      $('#stats').innerHTML = '';
+      $('#macros').innerHTML = '';
+      $('#panel-menu').innerHTML = '';
+      $('#shopList').innerHTML = '';
+      $('#shopTotal').innerHTML = '';
+      $('#panel-recipes').innerHTML = '';
+      $('#resultSub').textContent = '';
+      el.className = 'notice warn';
+      el.innerHTML = '<b>Не получилось собрать меню.</b> ' + res.error;
+      el.hidden = false;
+      return;
+    }
+    state.plan = res;
+    renderAll();
+    savePlan();
+    const card = $('#result');
+    card.classList.remove('updated');
+    void card.offsetWidth;   /* перезапуск анимации */
+    card.classList.add('updated');
+  }, 350);
+}
+
 function saveSettings() {
   updateStyleCounts();
   updateBudgetHint();
+  resyncPlan();
   try {
     localStorage.setItem(LS_SET, JSON.stringify({
       goal: state.goal, dietStyle: state.dietStyle, cuisines: state.cuisines,
