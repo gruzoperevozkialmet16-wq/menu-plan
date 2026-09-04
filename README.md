@@ -6,7 +6,7 @@
 
 Статика, без бэкенда: весь расчёт идёт в браузере, данные никуда не уходят.
 
-Прод: https://menu-plan.vercel.app
+Прод: https://menu-plan-seven.vercel.app
 
 ## Файлы
 
