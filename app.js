@@ -265,6 +265,13 @@ function buildMenu(pool, lvl, seed, T) {
   const need = (fact, target) => Math.max(0, (target - fact) / target);
   const over = (fact, target) => Math.max(0, (fact - target) / target);
 
+  /* Если пользователь не выбрал постное и не вегетарианец, в дне должно быть
+     мясо или рыба — иначе меню выглядит постным даже в режиме «правильное
+     питание»: растительные блюда дешевле, и подбор под бюджет тянет к ним. */
+  const meaty = x => x.item.r.ing.some(([id]) => MEAT_IDS.indexOf(id) !== -1);
+  const wantMeat = state.dietStyle !== 'lean' && !state.veg &&
+    ['lunch', 'dinner'].some(m => pool[m] && pool[m].some(x => x.r.ing.some(([id]) => MEAT_IDS.indexOf(id) !== -1)));
+
   for (let d = 0; d < state.days; d++) {
     let best = null;
 
@@ -305,11 +312,18 @@ function buildMenu(pool, lvl, seed, T) {
       }
       const pr = t.pr * scale, fi = t.fi * scale, fa = t.fa * scale, cost = t.cost * scale;
 
+      let meatPenalty = 0;
+      if (wantMeat) {
+        const n = picked.filter(meaty).length;
+        if (n === 0) meatPenalty = 85;        /* день без мяса и рыбы — так нельзя */
+        else if (n === 1) meatPenalty = 12;   /* приемлемо, но лучше два раза */
+      }
+
       const score =
         need(pr, T.protein) * 140 + over(pr, T.protein * 1.4) * 25 +
         need(fi, T.fiber) * 90 + over(fi, T.fiber * 1.7) * 10 +
         over(fa, T.fat * 1.6) * 30 +
-        Math.abs(scale - 1) * 25 +
+        Math.abs(scale - 1) * 25 + meatPenalty +
         (refCost > 0 ? over(cost, refCost) * 35 : 0);
 
       if (!best || score < best.score) best = { picked, scale, score, t };
