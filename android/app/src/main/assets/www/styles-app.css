@@ -219,5 +219,3 @@
 .app .catalog-sort .chip { padding: 7px 12px; font-size: 12.5px; }
 .app .cat-block { border-radius: var(--r-md); }
 .app .cat-row { padding: 11px 14px; }
-
-.last-plan { margin-bottom: 14px; border-style: dashed; }

@@ -1626,12 +1626,8 @@ function run() {
           state.plan = result;
           renderAll();
           savePlan();
-          /* приложение слушает это событие, чтобы открыть экран результата */
-          if (typeof window.onPlanReady === 'function') window.onPlanReady();
         }
-        if (!document.body.classList.contains('app')) {
-          $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 260);
     }
   };

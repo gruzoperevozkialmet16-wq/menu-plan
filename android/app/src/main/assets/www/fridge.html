@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Холодильник — что приготовить из остатков | ПланМеню</title>
+<meta name="description" content="Отметьте продукты, которые есть дома, и сервис подберёт блюда из 525 рецептов: что можно готовить прямо сейчас и где не хватает одного-двух продуктов.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles-extra.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark"><i>🥗</i></span>
+      <span class="brand-text">
+        <b>План<em>Меню</em></b>
+        <span>сервис планирования питания</span>
+      </span>
+    </a>
+    <nav class="header-nav">
+      <a href="fridge.html" class="is-current">Холодильник</a>
+      <a href="catalog.html">Каталог и цены</a>
+      <a href="about.html">Информация</a>
+      <a href="app.html">Приложение</a>
+      <a class="btn btn-sm btn-primary" href="./#planner">Составить меню</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="catalog-hero">
+    <div class="wrap">
+      <a class="back-link" href="./">← На главную</a>
+      <span class="eyebrow">Ничего не пропадёт</span>
+      <h1 class="section-title">Холодильник</h1>
+      <p class="section-sub">
+        Отметьте, что лежит в холодильнике и в шкафу. Сервис пройдёт по всем рецептам и покажет,
+        что можно приготовить прямо сейчас, а где не хватает одного-двух продуктов — с ценой докупки.
+      </p>
+      <div class="catalog-stats">
+        <div><b id="statRecipes">0</b><span>рецептов в базе</span></div>
+        <div><b id="statProducts">0</b><span>продуктов</span></div>
+        <div><b id="statHave">0</b><span>отмечено у вас</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="fridge fridge-page">
+    <div class="wrap">
+      <p class="fridge-limits" id="fridgeLimits"></p>
+
+      <div class="fridge-card">
+        <div class="fridge-search">
+          <input type="search" id="fridgeSearch" placeholder="Начните вводить: курица, яйца, гречка…">
+          <button type="button" class="btn btn-ghost btn-sm" id="fridgeClear">Очистить всё</button>
+        </div>
+        <div id="fridgeSuggest" class="fridge-suggest" hidden></div>
+
+        <div class="fridge-selected" id="fridgeSelected"></div>
+
+        <details class="fridge-all">
+          <summary>Показать весь список продуктов</summary>
+          <div id="fridgeAll"></div>
+        </details>
+
+        <label class="switch fridge-switch">
+          <input type="checkbox" id="fridgeStaples" checked><span class="slider"></span>
+          <em>Соль, специи, масло, мука есть<small>не считать их недостающими</small></em>
+        </label>
+
+        <button type="button" class="btn btn-primary btn-xl btn-block" id="fridgeBtn">Найти блюда</button>
+      </div>
+
+      <div id="fridgeResult"></div>
+    </div>
+  </section>
+</main>
+
+<section class="legal">
+  <div class="wrap">
+    <div class="legal-box">
+      <span class="legal-ic">⚖️</span>
+      <div>
+        <h4>Важно знать</h4>
+        <p><b>Сервис носит информационно-справочный характер.</b> «ПланМеню» — калькулятор
+        рациона и покупок, а не медицинская услуга. Расчёты калорий, белка и клетчатки —
+        усреднённые ориентиры для здорового человека, полученные по общепринятым формулам.</p>
+        <p><b>Сайт не заменяет врача и диетолога.</b> При заболеваниях, аллергиях, беременности,
+        кормлении, назначенной лечебной диете, а также при составлении рациона для детей
+        и пожилых людей решения принимает специалист. Администрация сайта не несёт
+        ответственности за последствия самостоятельного применения расчётов и не отвечает
+        за рекомендации сторонних врачей, диетологов и иных лиц.</p>
+        <p><b>Цены ориентировочные.</b> Прайс собран из усреднённых полочных цен и не является
+        публичной офертой: реальный чек зависит от акций, региона и конкретного магазина.
+        Названия торговых сетей принадлежат их правообладателям и приведены только для
+        обозначения уровня цен.</p>
+      </div>
+    </div>
+    <div class="legal-copy">
+      <span>© 2026 ПланМеню. Все права защищены.</span>
+      <span>Расчёт выполняется в браузере · персональные данные не собираются</span>
+    </div>
+  </div>
+</section>
+
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div>
+      <a class="brand brand-light" href="./">
+        <span class="brand-mark"><i>🥗</i></span>
+        <span class="brand-text">
+          <b>План<em>Меню</em></b>
+          <span>сервис планирования питания</span>
+        </span>
+      </a>
+      <p>Планировщик питания под бюджет и КБЖУ. Работает полностью в браузере, данные никуда не уходят.</p>
+    </div>
+    <div class="footer-links">
+      <a href="./#planner">Составить меню</a>
+      <a href="fridge.html">Холодильник</a>
+      <a href="catalog.html">Каталог и цены</a>
+      <a href="about.html">Информация</a>
+      <a href="app.html">Приложение</a>
+    </div>
+  </div>
+</footer>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close aria-label="Закрыть">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="products2.js"></script>
+<script src="recipes.js"></script>
+<script src="recipes-ru2.js"></script>
+<script src="recipes-it.js"></script>
+<script src="recipes-asia.js"></script>
+<script src="recipes-cauc.js"></script>
+<script src="recipes-med.js"></script>
+<script src="recipes-mex.js"></script>
+<script src="recipes-eu.js"></script>
+<script src="recipes-east.js"></script>
+<script src="recipes-ind.js"></script>
+<script src="recipes-fit.js"></script>
+<script src="recipes-lean.js"></script>
+<script src="recipes-snacks.js"></script>
+<script src="fridge-page.js"></script>
+<script src="nav.js"></script>
+</body>
+</html>

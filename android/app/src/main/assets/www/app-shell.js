@@ -184,11 +184,13 @@
     if ($('#statProducts')) $('#statProducts').textContent = PRODUCTS.length;
     if ($('#statCuisines')) $('#statCuisines').textContent = CUISINES.length;
 
-    /* планировщик сообщает, что план готов — открываем экран результата */
-    window.onPlanReady = () => {
-      updateFoldLabels();
-      show('result');
-    };
+    /* после построения плана — уводим на экран результата */
+    const result = $('#result');
+    if (result) {
+      new MutationObserver(() => {
+        if (!result.hidden && current === 'plan') show('result');
+      }).observe(result, { attributes: true, attributeFilter: ['hidden'] });
+    }
     $('#btnEdit').addEventListener('click', e => { e.preventDefault(); show('plan', true); });
 
     /* подписи секций держим в актуальном виде */
@@ -196,16 +198,8 @@
     document.addEventListener('click', () => setTimeout(updateFoldLabels, 60));
     document.addEventListener('input', () => setTimeout(updateFoldLabels, 60));
 
-    /* сохранённый план не открываем сразу — предлагаем кнопкой */
-    if (typeof state !== 'undefined' && state.plan) {
-      const bar = document.createElement('button');
-      bar.type = 'button';
-      bar.className = 'btn btn-ghost btn-block last-plan';
-      bar.innerHTML = '📋 Открыть последний план';
-      bar.addEventListener('click', () => show('result'));
-      const hero = document.querySelector('#screen-plan .app-hero');
-      if (hero) hero.insertAdjacentElement('afterend', bar);
-    }
+    /* если план уже был сохранён, открываем его сразу */
+    if (typeof state !== 'undefined' && state.plan) show('result');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
