@@ -6,6 +6,7 @@
    ключей localStorage, что использует планировщик на главной.
    ============================================================ */
 
+window.FridgeModule = (function () {
 /* ---------- утилиты ---------- */
 const $ = (sel, root) => (root || document).querySelector(sel);
 const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -22,62 +23,65 @@ function plural(n, one, few, many) {
 }
 
 /* ---------- настройки, общие с планировщиком ---------- */
-const state = {
+/* Если на странице уже работает планировщик (app.js), берём его настройки —
+   так холодильник в приложении сразу учитывает аллергии и состав семьи. */
+const shared = (typeof state !== 'undefined' && state && Array.isArray(state.persons)) ? state : null;
+const st = shared || {
   goal: 'normal', store: 'p5', excluded: [], veg: false, noPork: false,
-  persons: [{ type: 'adult', weight: 70 }, { type: 'adult', weight: 70 }],
+  persons: [{ type: 'adult', sex: 'm', weight: 78, height: 176, age: 30, activity: 'light' }],
 };
 try {
-  const raw = localStorage.getItem('menuplan_settings_v2');
+  const raw = shared ? null : localStorage.getItem('menuplan_settings_v2');
   if (raw) {
     const d = JSON.parse(raw);
-    if (d.store) state.store = d.store;
-    if (d.goal) state.goal = d.goal;
-    if (Array.isArray(d.excluded)) state.excluded = d.excluded;
-    state.veg = !!d.veg;
-    state.noPork = !!d.noPork;
-    if (Array.isArray(d.persons) && d.persons.length) state.persons = d.persons;
+    if (d.store) st.store = d.store;
+    if (d.goal) st.goal = d.goal;
+    if (Array.isArray(d.excluded)) st.excluded = d.excluded;
+    st.veg = !!d.veg;
+    st.noPork = !!d.noPork;
+    if (Array.isArray(d.persons) && d.persons.length) st.persons = d.persons;
     else if (typeof d.people === 'number') {
-      state.persons = [];
-      for (let i = 0; i < Math.max(1, d.people); i++) state.persons.push({ type: 'adult', weight: d.weight || 70 });
+      st.persons = [];
+      for (let i = 0; i < Math.max(1, d.people); i++) st.persons.push({ type: 'adult', weight: d.weight || 70 });
     }
   }
 } catch (e) { /* приватный режим */ }
 
-function peopleCount() { return state.persons.length; }
+function fpPeopleCount() { return st.persons.length; }
 
 /* ---------- нормы едоков (та же логика, что в планировщике) ---------- */
-function sexOf(p) { return SEXES.find(s => s.id === (p.sex || 'm')) || SEXES[0]; }
-function activityOf(p) { return ACTIVITY.find(a => a.id === (p.activity || 'light')) || ACTIVITY[1]; }
-function childNorm(age) { return CHILD_NORMS.find(n => age <= n.max) || CHILD_NORMS[CHILD_NORMS.length - 1]; }
+function fpSexOf(p) { return SEXES.find(s => s.id === (p.sex || 'm')) || SEXES[0]; }
+function fpActivityOf(p) { return ACTIVITY.find(a => a.id === (p.activity || 'light')) || ACTIVITY[1]; }
+function fpChildNorm(age) { return CHILD_NORMS.find(n => age <= n.max) || CHILD_NORMS[CHILD_NORMS.length - 1]; }
 
-function personTargets(p) {
+function fpPersonTargets(p) {
   if (p.type === 'child') {
-    const n = childNorm(p.age || 7);
+    const n = fpChildNorm(p.age || 7);
     return { kcal: p.sex === 'f' ? n.kcalF : n.kcalM, isChild: true, ageLabel: n.label };
   }
-  const g = GOALS.find(x => x.id === (state.goal || 'normal')) || GOALS[1];
-  const w = p.weight || 70, h = p.height || sexOf(p).height, age = p.age || 30;
+  const g = GOALS.find(x => x.id === (st.goal || 'normal')) || GOALS[1];
+  const w = p.weight || 70, h = p.height || fpSexOf(p).height, age = p.age || 30;
   const base = 10 * w + 6.25 * h - 5 * age + (p.sex === 'f' ? -161 : 5);
-  const tdee = base * activityOf(p).k;
+  const tdee = base * fpActivityOf(p).k;
   return { kcal: Math.max(Math.round(base * 1.05), Math.round(tdee * g.kcalFactor)), isChild: false };
 }
 
-function personName(p) {
-  const sx = sexOf(p);
+function fpPersonName(p) {
+  const sx = fpSexOf(p);
   if (p.type === 'child') return sx.childName + (p.age ? ', ' + p.age + ' ' + plural(p.age, 'год', 'года', 'лет') : '');
   return sx.name + (p.weight ? ', ' + p.weight + ' кг' : '');
 }
 
 /* Делим готовое блюдо между едоками по их суточной норме калорий */
-function servingSplitHtml(r) {
-  const per = state.persons.map(p => ({ p, t: personTargets(p) }));
+function fpServingSplitHtml(r) {
+  const per = st.persons.map(p => ({ p, t: fpPersonTargets(p) }));
   const totalKcal = per.reduce((s, x) => s + x.t.kcal, 0);
   if (!per.length || !totalKcal) return '';
 
   let grams = 0;
   const mac = { kc: 0, pr: 0 };
   r.ing.forEach(([id, g]) => {
-    const pr = PRODUCT_BY_ID[id], q = g * PORTION * peopleCount();
+    const pr = PRODUCT_BY_ID[id], q = g * PORTION * fpPeopleCount();
     grams += q;
     mac.kc += q * pr.kc / 100;
     mac.pr += q * pr.pr / 100;
@@ -88,9 +92,9 @@ function servingSplitHtml(r) {
     <div class="serving-split">
       ${per.map(x => {
         const share = x.t.kcal / totalKcal;
-        const icon = x.t.isChild ? (x.p.sex === 'f' ? '👧' : '👦') : sexOf(x.p).icon;
+        const icon = x.t.isChild ? (x.p.sex === 'f' ? '👧' : '👦') : fpSexOf(x.p).icon;
         return `<div class="ss-row${x.t.isChild ? ' is-child' : ''}">
-          <span class="ss-who">${icon} ${personName(x.p)}</span>
+          <span class="ss-who">${icon} ${fpPersonName(x.p)}</span>
           <b class="ss-g">${Math.round(grams * share)} г</b>
           <span class="ss-kc">${num(mac.kc * share)} ккал</span>
           <span class="ss-pr">Б ${num(mac.pr * share)} г</span>
@@ -112,12 +116,12 @@ function servingSplitHtml(r) {
 const RECIPE_BY_ID = {};
 RECIPES.forEach(r => { RECIPE_BY_ID[r.id] = r; });
 
-function recipeAllergens(r) {
+function fpRecipeAllergens(r) {
   const set = {};
   r.ing.forEach(([id]) => (PRODUCT_BY_ID[id].a || []).forEach(a => { set[a] = 1; }));
   return Object.keys(set);
 }
-function recipeMacro(r) {
+function fpRecipeMacro(r) {
   let kc = 0, pr = 0, fa = 0, ca = 0, fi = 0;
   r.ing.forEach(([id, g]) => {
     const p = PRODUCT_BY_ID[id], q = g * PORTION / 100;
@@ -125,29 +129,29 @@ function recipeMacro(r) {
   });
   return { kc, pr, fa, ca, fi };
 }
-function recipeCost(r, k) {
+function fpRecipeCost(r, k) {
   let sum = 0;
   r.ing.forEach(([id, g]) => { sum += (g * PORTION / 1000) * PRODUCT_BY_ID[id].price * k; });
   return sum;
 }
-function recipeHas(r, ids) { return r.ing.some(([id]) => ids.indexOf(id) !== -1); }
+function fpRecipeHas(r, ids) { return r.ing.some(([id]) => ids.indexOf(id) !== -1); }
 
 /* ---------- модалка рецепта ---------- */
-function openRecipe(id) {
+function fpOpenRecipe(id) {
   const r = RECIPE_BY_ID[id];
   if (!r) return;
-  const k = storeK(state.store);
+  const k = storeK(st.store);
   const info = MEALS.find(m => m.id === r.m);
-  const al = recipeAllergens(r);
-  const mac = recipeMacro(r);
-  const n = peopleCount();
+  const al = fpRecipeAllergens(r);
+  const mac = fpRecipeMacro(r);
+  const n = fpPeopleCount();
   $('#modalContent').innerHTML = `
     <div class="m-photo" style="background:${dishGradient(r)}"><span>${dishEmoji(r)}</span><i>${info.name}</i></div>
     <h3>${r.n}</h3>
     <div class="m-meta">
       <span>${info.icon} ${info.name}</span>
       <span>⏱ ${r.t} мин</span>
-      <span>💸 ${money(recipeCost(r, k) * n)} на ${n} ${plural(n, 'человека', 'человек', 'человек')}</span>
+      <span>💸 ${money(fpRecipeCost(r, k) * n)} на ${n} ${plural(n, 'человека', 'человек', 'человек')}</span>
     </div>
     <div class="m-macro">
       <div><b>${num(mac.kc)}</b><span>ккал</span></div>
@@ -156,7 +160,7 @@ function openRecipe(id) {
       <div><b>${num(mac.ca)} г</b><span>углеводы</span></div>
       <div><b>${num(mac.fi)} г</b><span>клетчатка</span></div>
     </div>
-    ${servingSplitHtml(r)}
+    ${fpServingSplitHtml(r)}
     <div class="m-sec">Продукты на ${n} ${plural(n, 'человека', 'человек', 'человек')}</div>
     ${r.ing.map(([pid, g]) => {
       const p = PRODUCT_BY_ID[pid];
@@ -172,7 +176,7 @@ function openRecipe(id) {
   $('#modal').hidden = false;
   document.body.style.overflow = 'hidden';
 }
-function closeModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
+function fpCloseModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
 
 document.addEventListener('click', e => {
   const rec = e.target.closest('[data-recipe]');
@@ -277,16 +281,16 @@ function renderFridgeSuggest() {
 
 /* ---------- подбор блюд ---------- */
 function fridgeMatch() {
-  const k = storeK(state.store);
+  const k = storeK(st.store);
   const haveSet = {};
   fridge.have.forEach(id => { haveSet[id] = 1; });
 
   const rows = [];
   RECIPES.forEach(r => {
-    const al = recipeAllergens(r);
-    if (al.some(a => state.excluded.indexOf(a) !== -1)) return;
-    if (state.veg && recipeHas(r, MEAT_IDS)) return;
-    if (state.noPork && recipeHas(r, PORK_IDS)) return;
+    const al = fpRecipeAllergens(r);
+    if (al.some(a => st.excluded.indexOf(a) !== -1)) return;
+    if (st.veg && fpRecipeHas(r, MEAT_IDS)) return;
+    if (st.noPork && fpRecipeHas(r, PORK_IDS)) return;
 
     const need = r.ing.filter(([id]) => !(fridge.staples && PRODUCT_BY_ID[id].staple));
     if (!need.length) return;
@@ -298,7 +302,7 @@ function fridgeMatch() {
     let buyCost = 0;
     const buyList = missing.map(([id, g]) => {
       const p = PRODUCT_BY_ID[id];
-      const packs = Math.max(1, Math.ceil(g * PORTION * peopleCount() / 1000 / p.pack - 0.001));
+      const packs = Math.max(1, Math.ceil(g * PORTION * fpPeopleCount() / 1000 / p.pack - 0.001));
       const cost = packs * p.pack * p.price * k;
       buyCost += cost;
       return { p, packs, cost };
@@ -307,8 +311,8 @@ function fridgeMatch() {
     rows.push({
       r, used, missingCount: missing.length, buyList, buyCost,
       coverage: used / need.length,
-      mac: recipeMacro(r),
-      cost: recipeCost(r, k),
+      mac: fpRecipeMacro(r),
+      cost: fpRecipeCost(r, k),
     });
   });
 
@@ -380,12 +384,12 @@ function renderFridgeResult() {
 /* ---------- сводка активных ограничений ---------- */
 function renderLimits() {
   const parts = [];
-  state.excluded.forEach(id => {
+  st.excluded.forEach(id => {
     const a = ALLERGENS.find(x => x.id === id);
     if (a) parts.push(a.icon + ' без ' + a.name.toLowerCase());
   });
-  if (state.veg) parts.push('🌿 вегетарианское');
-  if (state.noPork) parts.push('🚫 без свинины');
+  if (st.veg) parts.push('🌿 вегетарианское');
+  if (st.noPork) parts.push('🚫 без свинины');
   const el = $('#fridgeLimits');
   if (!el) return;
   el.innerHTML = parts.length
@@ -445,3 +449,6 @@ function updateHaveCount() {
   const el = $('#statHave');
   if (el) el.textContent = fridge.have.length;
 }
+
+  return { render: renderFridgeResult, refreshLimits: renderLimits, selected: () => fridge.have };
+})();

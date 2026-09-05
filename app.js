@@ -1259,12 +1259,15 @@ function renderAll() {
     `${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${peopleLabel()} · ` +
     `${state.mealsCount} ${plural(state.mealsCount, 'приём', 'приёма', 'приёмов')} пищи · «${STORES.find(s => s.id === state.store).name}»` +
     (state.excluded.length ? ` · без: ${state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')}` : '');
-  renderNotice();
-  renderStats();
-  renderMacros();
-  renderMenu();
-  renderShopping();
-  renderRecipesTab();
+  /* Каждый блок рисуем отдельно: если один споткнётся на старых данных,
+     остальные всё равно отрисуются — раньше падение в меню оставляло
+     покупки и рецепты пустыми. */
+  [renderNotice, renderStats, renderMacros, renderMenu, renderShopping, renderRecipesTab]
+    .forEach(fn => {
+      try { fn(); } catch (err) {
+        console.error('Не удалось отрисовать блок:', fn.name, err);
+      }
+    });
 }
 
 /* ============================================================
@@ -1823,6 +1826,21 @@ function loadPlan() {
     if (!p || !p.menu || !p.targets) return;
     Object.assign(state, migratePersons(p.settings || {}));
     state.plan = p;
+
+    /* план мог быть сохранён прошлой версией: нормы тогда считались иначе,
+       а у дней не было добора и масштаба порций — приводим к текущему формату */
+    state.plan.targets = targets();
+    state.plan.menu.forEach(d => {
+      if (typeof d.scale !== 'number' || !isFinite(d.scale) || d.scale <= 0) d.scale = peopleCount();
+      if (!Array.isArray(d.boost)) d.boost = [];
+      d.meals = (d.meals || []).filter(m => RECIPE_BY_ID[m.id]);
+    });
+    state.plan.menu = state.plan.menu.filter(d => d.meals.length);
+    if (!state.plan.menu.length) { state.plan = null; return; }
+    if (typeof state.plan.avgScale !== 'number' || !isFinite(state.plan.avgScale)) {
+      const sc = state.plan.menu.map(d => d.scale);
+      state.plan.avgScale = sc.reduce((a, b) => a + b, 0) / sc.length;
+    }
     recalcPlan();           /* вдруг обновились цены в data.js */
     $('#result').hidden = false;
     applySettingsToForm();
@@ -1839,11 +1857,12 @@ function loadPlan() {
   applySettingsToForm();
   initResultActions();
 
-  $('#statProducts').textContent = PRODUCTS.length;
-  $('#statRecipes').textContent = RECIPES.length;
-  $('#statAllerg').textContent = ALLERGENS.length;
-  if ($('#statCuisines')) $('#statCuisines').textContent = CUISINES.length;
-  $('#priceDate').textContent = PRICE_DATE;
+  const setText = (sel, val) => { const el = $(sel); if (el) el.textContent = val; };
+  setText('#statProducts', PRODUCTS.length);
+  setText('#statRecipes', RECIPES.length);
+  setText('#statAllerg', ALLERGENS.length);
+  setText('#statCuisines', CUISINES.length);
+  setText('#priceDate', PRICE_DATE);
   $$('.pd').forEach(el => { el.textContent = PRICE_DATE; });
 
   loadPlan();

@@ -113,9 +113,10 @@
       render();
     });
 
-    $('#statProducts').textContent = PRODUCTS.length;
-    $('#statCategories').textContent = CATEGORIES.length;
-    $('#statStores').textContent = STORES.length;
+    const setText = (sel, val) => { const el = $(sel); if (el) el.textContent = val; };
+    setText('#statProducts', PRODUCTS.length);
+    setText('#statCategories', CATEGORIES.length);
+    setText('#statStores', STORES.length);
     $$('.pd').forEach(el => { el.textContent = PRICE_DATE; });
 
     render();

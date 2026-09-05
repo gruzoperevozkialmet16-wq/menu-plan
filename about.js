@@ -41,7 +41,7 @@ const SUPPORT = {
     const steps = $('#bugSteps').value.trim();
     const contact = $('#bugContact').value.trim();
 
-    let out = 'ЗАЯВКА ОБ ОШИБКЕ — Меню-План\n';
+    let out = 'ЗАЯВКА ОБ ОШИБКЕ — ПланМеню\n';
     out += 'Номер: ' + id + '\n';
     out += 'Дата: ' + date + '\n';
     out += 'Тип: ' + bugType + '\n';
@@ -60,7 +60,7 @@ const SUPPORT = {
   function sendHint(id) {
     const parts = [];
     if (SUPPORT.email) {
-      const subj = encodeURIComponent('Меню-План: ' + bugType + ' (' + id + ')');
+      const subj = encodeURIComponent('ПланМеню: ' + bugType + ' (' + id + ')');
       const body = encodeURIComponent(lastReport || '');
       parts.push(`<a class="btn btn-gold" href="mailto:${SUPPORT.email}?subject=${subj}&body=${body}">Отправить на почту</a>`);
     }
