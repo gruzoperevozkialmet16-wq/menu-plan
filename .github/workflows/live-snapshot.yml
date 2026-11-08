@@ -1,0 +1,26 @@
+name: live-snapshot
+on:
+  push:
+    branches: [live-snapshot]
+permissions:
+  contents: write
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download live site files
+        run: |
+          mkdir -p live live/icons live/supabase-email
+          base=https://menu-plan-seven.vercel.app
+          for f in README.md SUPABASE-SETUP.md about.html about.js account-page.js account.html account.js app-shell.js app.html app.js catalog.html catalog.js config.js data.js fridge-page.js fridge.html index.html manifest.webmanifest metrika.js nav.js products2.js recipes-asia.js recipes-cauc.js recipes-east.js recipes-eu.js recipes-fit.js recipes-ind.js recipes-it.js recipes-lean.js recipes-med.js recipes-mex.js recipes-ru2.js recipes-snacks.js recipes.js styles-account.css styles-app.css styles-extra.css styles.css styles-about.css sw.js vercel.json supabase-email/confirm-signup.html supabase-email/reset-password.html; do
+            code=$(curl -sS -L -o "live/$f" -w "%{http_code}" "$base/$f")
+            echo "$code $f $(sha1sum live/$f | cut -c1-40)"
+          done | tee live/_status.txt
+      - name: Commit
+        run: |
+          git config user.name "snapshot-bot"
+          git config user.email "noreply@github.com"
+          git add live
+          git commit -m "Снимок файлов с menu-plan-seven.vercel.app"
+          git push
