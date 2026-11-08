@@ -19,6 +19,13 @@ const state = {
   veg: false,
   noPork: false,
   staplesOwned: true,
+  /* ленивое питание: обед и ужин готовятся сразу на два дня */
+  lazy: false,
+  /* какая техника есть на кухне; по умолчанию — вся */
+  tech: TECH.map(t => t.id),
+  /* витамины и добавки: on — принимает ли вообще, items — id → порций в день,
+     takers — сколько взрослых принимает (null = все взрослые) */
+  supp: { on: false, items: {}, takers: null },
   plan: null,
 };
 
@@ -183,6 +190,81 @@ function matchesCuisine(r) {
 const RECIPE_BY_ID = {};
 RECIPES.forEach(r => { RECIPE_BY_ID[r.id] = r; });
 
+/* ---------- кухонная техника ----------
+   Какая техника нужна рецепту, определяет recipeTech() из cooking.js. */
+/* Хватает ли техники пользователя на это блюдо */
+function techOk(r, have) {
+  const list = have || state.tech;
+  return recipeTech(r).every(g => g.some(t => list.indexOf(t) !== -1));
+}
+
+/* Какую технику показать в карточке: по одному прибору из каждой группы —
+   тот, что есть у пользователя, а если нет — первый подходящий */
+function techLabel(r) { return techLabelFor(r, state.tech); }
+
+/* ---------- витамины и добавки ----------
+   Возвращает дневную сумму КБЖУ добавок на всю семью. Добавки принимают
+   только взрослые: детям без врача их не назначаем. */
+function adultCount() { return state.persons.filter(p => p.type === 'adult').length; }
+function suppTakers() {
+  const a = adultCount();
+  if (!a) return 0;
+  const t = state.supp && state.supp.takers;
+  return clamp(typeof t === 'number' && t > 0 ? t : a, 1, a);
+}
+function suppList() {
+  if (!state.supp || !state.supp.on) return [];
+  const items = state.supp.items || {};
+  return SUPPLEMENTS
+    .filter(s => items[s.id] > 0)
+    .map(s => ({ s, serv: clamp(Math.round(items[s.id]), 1, s.maxServ) }));
+}
+function suppDaily() {
+  const sum = { kc: 0, pr: 0, fa: 0, ca: 0, fi: 0 };
+  const n = suppTakers();
+  suppList().forEach(({ s, serv }) => {
+    const q = serv * n;
+    sum.kc += s.kc * q; sum.pr += s.pr * q; sum.fa += s.fa * q;
+    sum.ca += s.ca * q; sum.fi += s.fi * q;
+  });
+  return sum;
+}
+
+/* Норма, которую должна закрыть ЕДА: общая норма минус то, что дают добавки.
+   Калории не опускаем ниже половины нормы — добавки не заменяют еду. */
+function foodTargets(T) {
+  const s = suppDaily();
+  if (!s.kc && !s.pr && !s.fi && !s.fa) return T;
+  return Object.assign({}, T, {
+    kcal: Math.max(T.kcal * 0.5, T.kcal - s.kc),
+    protein: Math.max(T.protein * 0.25, T.protein - s.pr),
+    fat: Math.max(T.fat * 0.5, T.fat - s.fa),
+    carb: Math.max(T.carb * 0.3, T.carb - s.ca),
+    fiber: Math.max(T.fiber * 0.3, T.fiber - s.fi),
+  });
+}
+
+/* Масштаб порций дня: сколько базовых порций каждого блюда приготовить на всю
+   семью, чтобы попасть в норму калорий и оставить запас под добор белка.
+   Одна формула и для сборки меню, и для ручной замены блюда. */
+function dayScaleFor(t, Tf) {
+  const N = Math.max(1, Tf.people);
+  const exp = expectedPortion();
+  const lo = 0.55 * exp * N, hi = 2.2 * exp * N;
+  let scale = clamp(Tf.kcal / t.kc, lo, hi);
+  const prDeficit = Tf.protein - t.pr * scale;
+  if (prDeficit > 0) {
+    const reserve = Math.min(Tf.kcal * 0.42, prDeficit * kcalPerGramProtein());
+    scale = clamp((Tf.kcal - reserve) / t.kc, lo, hi);
+  }
+  return scale;
+}
+
+/* Приёмы пищи, которые в ленивом режиме готовятся на два дня */
+function lazyMeals() {
+  return state.lazy ? activeMeals().filter(m => m === 'lunch' || m === 'dinner') : [];
+}
+
 /* Пул разрешённых рецептов по типам приёмов пищи */
 function buildPool() {
   const k = storeK(state.store);
@@ -194,6 +276,7 @@ function buildPool() {
     if (state.noPork && recipeHas(r, PORK_IDS)) return;
     if (!matchesCuisine(r)) return;
     if (!matchesStyle(r)) return;
+    if (!techOk(r)) return;
     pool[r.m].push({ r, cost: recipeCost(r, k), m: recipeMacro(r) });
   });
   Object.keys(pool).forEach(m => pool[m].sort((a, b) => a.cost - b.cost));
@@ -266,9 +349,11 @@ function productAllowed(p) {
    На обычном меню это грудка или творог (~5–7 ккал/г), на постном — бобовые
    и тофу (до 15 ккал/г), поэтому резерв калорий под добор нужен больше. */
 function kcalPerGramProtein() {
-  const list = BOOST_PROTEIN.map(id => PRODUCT_BY_ID[id]).filter(p => productAllowed(p) && p.pr > 5);
+  const list = BOOST_PROTEIN.map(x => PRODUCT_BY_ID[x.id]).filter(p => productAllowed(p) && p.pr > 5);
   if (!list.length) return 6;
-  return clamp(Math.min.apply(null, list.map(p => p.kc / p.pr)), 4, 16);
+  /* не меньше 6: добор идёт по кругу из разных продуктов, а не только из самого
+     «чистого», поэтому реальная цена грамма белка выше минимальной */
+  return clamp(Math.min.apply(null, list.map(p => p.kc / p.pr)), 6, 16);
 }
 
 /* dm — КБЖУ дня уже с учётом масштаба порций */
@@ -383,9 +468,12 @@ function dayTotals(mealIds, pool) {
 function buildMenu(pool, lvl, seed, T) {
   const rand = rng(seed);
   const meals = activeMeals();
+  const lazy = lazyMeals();
   const menu = [];
   const lastUsed = {};
   const attempts = state.days > 30 ? 12 : 20;
+  /* еда закрывает норму за вычетом того, что дают витамины и добавки */
+  const Tf = foodTargets(T);
 
   /* опорная цена дня для этого уровня — чтобы подбор белка не разносил бюджет */
   let refCost = 0;
@@ -394,8 +482,8 @@ function buildMenu(pool, lvl, seed, T) {
     if (list.length) refCost += list[Math.round(lvl * (list.length - 1))].cost;
   });
 
-  const need = (fact, target) => Math.max(0, (target - fact) / target);
-  const over = (fact, target) => Math.max(0, (fact - target) / target);
+  const need = (fact, target) => target > 0 ? Math.max(0, (target - fact) / target) : 0;
+  const over = (fact, target) => target > 0 ? Math.max(0, (fact - target) / target) : 0;
 
   /* Если пользователь не выбрал постное и не вегетарианец, в дне должно быть
      мясо или рыба — иначе меню выглядит постным даже в режиме «правильное
@@ -406,10 +494,23 @@ function buildMenu(pool, lvl, seed, T) {
 
   for (let d = 0; d < state.days; d++) {
     let best = null;
+    /* Ленивое питание: на второй день пары обед и ужин — те же, что вчера,
+       это остатки, готовить заново не нужно */
+    const prev = menu[d - 1];
+    const forced = {};
+    if (lazy.length && d % 2 === 1 && prev) {
+      lazy.forEach(m => {
+        const pm = prev.meals.find(x => x.type === m);
+        if (!pm) return;
+        const it = pool[m].find(x => x.r.id === pm.id);
+        if (it) forced[m] = it;
+      });
+    }
 
     for (let a = 0; a < attempts; a++) {
       const picked = [];
       meals.forEach(m => {
+        if (forced[m]) { picked.push({ type: m, item: forced[m] }); return; }
         const list = pool[m];
         if (!list.length) return;
         const n = list.length;
@@ -436,15 +537,7 @@ function buildMenu(pool, lvl, seed, T) {
       /* Если блюда не закрывают белок, резервируем часть калорий под добор
          (примерно 6 ккал на грамм белка из творога, грудки, яиц) и слегка
          уменьшаем порции — так и норма белка закрыта, и калории не превышены. */
-      const N = Math.max(1, T.people);
-      const exp = expectedPortion();
-      const lo = 0.55 * exp * N, hi = 2.2 * exp * N;
-      let scale = clamp(T.kcal / t.kc, lo, hi);
-      const prDeficit = T.protein - t.pr * scale;
-      if (prDeficit > 0) {
-        const reserve = Math.min(T.kcal * 0.42, prDeficit * kcalPerGramProtein());
-        scale = clamp((T.kcal - reserve) / t.kc, lo, hi);
-      }
+      const scale = dayScaleFor(t, Tf);
       const pr = t.pr * scale, fi = t.fi * scale, fa = t.fa * scale, cost = t.cost * scale;
 
       let meatPenalty = 0;
@@ -455,13 +548,21 @@ function buildMenu(pool, lvl, seed, T) {
       }
 
       const score =
-        need(pr, T.protein) * 140 + over(pr, T.protein * 1.4) * 25 +
-        need(fi, T.fiber) * 90 + over(fi, T.fiber * 1.7) * 10 +
-        over(fa, T.fat * 1.6) * 30 +
+        need(pr, Tf.protein) * 140 + over(pr, Tf.protein * 1.4) * 25 +
+        need(fi, Tf.fiber) * 90 + over(fi, Tf.fiber * 1.7) * 10 +
+        over(fa, Tf.fat * 1.6) * 30 +
         Math.abs(scale / Math.max(1, T.people) / expectedPortion() - 1) * 25 + meatPenalty +
         (refCost > 0 ? over(cost, refCost) * 35 : 0);
 
       if (!best || score < best.score) best = { picked, scale, score, t };
+      /* когда все приёмы заданы заранее, перебирать нечего */
+      if (Object.keys(forced).length === meals.length) break;
+    }
+
+    if (!best) {
+      /* все блюда дня с нулевой калорийностью — так не бывает, но не падаем */
+      const picked = meals.filter(m => pool[m].length).map(m => ({ type: m, item: forced[m] || pool[m][0] }));
+      best = { picked, scale: Math.max(1, T.people), t: dayTotals(picked, pool) };
     }
 
     best.picked.forEach(p => { lastUsed[p.item.r.id] = d; });
@@ -470,11 +571,19 @@ function buildMenu(pool, lvl, seed, T) {
       kc: best.t.kc * sc, pr: best.t.pr * sc, fa: best.t.fa * sc,
       ca: best.t.ca * sc, fi: best.t.fi * sc,
     };
+    const dayMeals = best.picked.map(p => ({ type: p.type, id: p.item.r.id }));
+    /* отмечаем пару «готовим на два дня → едим остатки» */
+    dayMeals.forEach(mm => {
+      if (!forced[mm.type]) return;
+      mm.lazy = 'left';
+      const pm = prev.meals.find(x => x.type === mm.type);
+      if (pm) pm.lazy = 'cook2';
+    });
     menu.push({
       day: d,
       scale: sc,
-      boost: buildBoost(dm, T),
-      meals: best.picked.map(p => ({ type: p.type, id: p.item.r.id })),
+      boost: buildBoost(dm, Tf),
+      meals: dayMeals,
     });
   }
   return menu;
@@ -547,6 +656,10 @@ function dayMacros(day) {
   });
   const b = boostMacro(day.boost);
   s.kc += b.kc; s.pr += b.pr; s.fa += b.fa; s.ca += b.ca; s.fi += b.fi; s.cost += b.cost;
+  /* витамины и добавки входят в КБЖУ дня, но не в стоимость продуктов:
+     их покупают отдельно и заранее */
+  const sp = suppDaily();
+  s.kc += sp.kc; s.pr += sp.pr; s.fa += sp.fa; s.ca += sp.ca; s.fi += sp.fi;
   return s;
 }
 
@@ -594,7 +707,8 @@ function generatePlan(seed) {
     return {
       error: 'Из-за выбранных ограничений не осталось рецептов для: ' +
         missing.map(m => MEALS.find(x => x.id === m).name.toLowerCase()).join(', ') +
-        '. Снимите часть исключений.'
+        '. Снимите часть исключений' +
+        (state.tech.length < TECH.length ? ' или отметьте больше кухонной техники' : '') + '.'
     };
   }
 
@@ -653,7 +767,8 @@ function generatePlan(seed) {
       persons: JSON.parse(JSON.stringify(state.persons)), budget: state.budget, days: state.days,
       mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded.slice(), veg: state.veg, noPork: state.noPork,
-      staplesOwned: state.staplesOwned,
+      staplesOwned: state.staplesOwned, lazy: state.lazy, tech: state.tech.slice(),
+      supp: JSON.parse(JSON.stringify(state.supp)),
     },
     startDate: Date.now(),
   };
@@ -667,6 +782,8 @@ function recalcPlan() {
   const uniq = {};
   p.menu.forEach(d => d.meals.forEach(m => { uniq[m.id] = 1; }));
   p.uniqCount = Object.keys(uniq).length;
+  const sc = p.menu.map(d => d.scale).filter(x => isFinite(x) && x > 0);
+  if (sc.length) p.avgScale = sc.reduce((a, b) => a + b, 0) / sc.length;
 }
 
 /* ============================================================
@@ -795,7 +912,29 @@ function renderMacros() {
     ${kidNote}
     <h4 class="macro-sub">Итого на всю семью за день</h4>
     <div class="macro-grid">${bars}</div>
-    <div class="macro-verdict">${verdict}</div>`;
+    <div class="macro-verdict">${verdict}</div>
+    ${suppMacroNote()}`;
+}
+
+/* Сколько КБЖУ дают добавки — чтобы было видно, почему еды стало меньше */
+function suppMacroNote() {
+  const list = suppList();
+  if (!list.length) return '';
+  const sp = suppDaily();
+  const names = list.map(({ s, serv }) => s.name + (serv > 1 ? ' ×' + serv : '')).join(', ');
+  if (sp.kc < 1 && sp.pr < 0.5 && sp.fi < 0.5) {
+    return `<div class="macro-supp">💊 Учтены добавки: ${names}. Калорий и белка в них нет,
+      поэтому на подбор еды они не влияют. Стоимость добавок в бюджет продуктов не входит.</div>`;
+  }
+  return `<div class="macro-supp">💊 <b>Учтены добавки</b> (${names}, принимают ${suppTakers()} чел.):
+    они дают семье <b>${[
+      num(sp.kc) + ' ккал',
+      sp.pr >= 1 ? num(sp.pr) + ' г белка' : '',
+      sp.fa >= 1 ? num(sp.fa) + ' г жиров' : '',
+      sp.ca >= 1 ? num(sp.ca) + ' г углеводов' : '',
+      sp.fi >= 1 ? num(sp.fi) + ' г клетчатки' : '',
+    ].filter(Boolean).join(', ')}</b> в день. Эти цифры уже входят в итог выше,
+    а еды подобрано ровно на столько меньше. Стоимость добавок в бюджет продуктов не входит.</div>`;
 }
 
 function renderNotice() {
@@ -842,14 +981,18 @@ function renderMenu() {
           const r = RECIPE_BY_ID[m.id];
           const info = MEALS.find(x => x.id === m.type);
           const mac = recipeMacro(r);
-          return `<div class="meal">
+          const lazyTag = m.lazy === 'cook2'
+            ? '<div class="meal-lazy cook">🍳 Готовьте сразу на 2 дня</div>'
+            : (m.lazy === 'left' ? '<div class="meal-lazy left">🔁 Остатки со вчера — готовить не нужно</div>' : '');
+          return `<div class="meal${m.lazy === 'left' ? ' is-left' : ''}">
             <div class="meal-ic" style="background:${dishGradient(r)}">${dishEmoji(r)}</div>
             <div class="meal-body">
               <div class="meal-type">${info.name}</div>
-              <div class="meal-name" data-recipe="${r.id}">${r.n}</div>
-              <div class="meal-meta">${num(mac.kc * day.scale)} ккал · Б ${num(mac.pr * day.scale)} г · ${money(recipeCost(r, storeK(state.store)) * day.scale)}</div>
+              <div class="meal-name" data-recipe="${r.id}" data-day="${day.day}">${r.n}</div>
+              <div class="meal-meta">${num(mac.kc * day.scale)} ккал · Б ${num(mac.pr * day.scale)} г · ${m.lazy === 'left' ? 'уже куплено вчера' : money(recipeCost(r, storeK(state.store)) * day.scale)}</div>
+              ${lazyTag}
             </div>
-            <button class="meal-swap" title="Заменить блюдо" data-swap="${day.day}:${m.type}">⇄</button>
+            <button class="meal-swap" title="${m.lazy ? 'Заменить блюдо на оба дня' : 'Заменить блюдо'}" data-swap="${day.day}:${m.type}">⇄</button>
           </div>`;
         }).join('')}
         ${(day.boost && day.boost.length) ? `<div class="day-boost">
@@ -864,6 +1007,7 @@ function renderMenu() {
             return `<span title="на одного человека">${info.icon} ${p.n} — ${label}</span>`;
           }).join('')}
         </div>` : ''}
+        ${suppDayHtml()}
       </div>`;
     }).join('');
     return `<div class="week">
@@ -871,6 +1015,17 @@ function renderMenu() {
       <div class="days">${days}</div>
     </div>`;
   }).join('');
+}
+
+/* Строка с добавками в карточке дня */
+function suppDayHtml() {
+  const list = suppList();
+  if (!list.length) return '';
+  const n = suppTakers();
+  return `<div class="day-supp">
+    <b>💊 Витамины и добавки${n > 1 ? ' · ' + n + ' чел.' : ''}</b>
+    ${list.map(({ s, serv }) => `<span>${s.icon} ${s.name}${serv > 1 ? ' ×' + serv : ''}</span>`).join('')}
+  </div>`;
 }
 
 function renderShopping() {
@@ -928,6 +1083,10 @@ function boughtItems() {
   return out;
 }
 
+/* «Оставить как есть» сворачивает плашку в компактную строку, чтобы она
+   не закрывала список, пока человек ходит по магазину */
+let boughtCollapsed = false;
+
 function renderBought() {
   const box = $('#boughtBar');
   if (!box || !state.plan) return;
@@ -937,10 +1096,25 @@ function renderBought() {
 
   if (!got.length) {
     box.hidden = true;
+    boughtCollapsed = false;
     return;
   }
   box.hidden = false;
   const left = all.length - got.length;
+  box.classList.toggle('collapsed', boughtCollapsed && left > 0);
+
+  if (boughtCollapsed && left > 0) {
+    box.innerHTML = `
+      <div class="bought-info">
+        <b>✓ ${got.length} из ${all.length} · ${money(sum)}</b>
+      </div>
+      <div class="bought-actions">
+        <button type="button" class="bought-expand" id="btnBoughtExpand">Пересобрать…</button>
+      </div>`;
+    $('#btnBoughtExpand').addEventListener('click', () => { boughtCollapsed = false; renderBought(); });
+    return;
+  }
+
   box.innerHTML = `
     <div class="bought-info">
       <b>Отмечено ${got.length} из ${all.length}</b>
@@ -954,7 +1128,11 @@ function renderBought() {
   const rb = $('#btnRebuildBought');
   if (rb) rb.addEventListener('click', () => rebuildFromBought(got, sum));
   const kp = $('#btnKeepPlan');
-  if (kp) kp.addEventListener('click', () => { $('#boughtResult').hidden = true; });
+  if (kp) kp.addEventListener('click', () => {
+    $('#boughtResult').hidden = true;
+    boughtCollapsed = true;
+    renderBought();
+  });
 }
 
 /* Собираем меню, пока хватает купленных продуктов */
@@ -973,7 +1151,7 @@ function rebuildFromBought(got, sum) {
     if (al.some(a => state.excluded.indexOf(a) !== -1)) return;
     if (state.veg && recipeHas(r, MEAT_IDS)) return;
     if (state.noPork && recipeHas(r, PORK_IDS)) return;
-    if (!matchesCuisine(r) || !matchesStyle(r)) return;
+    if (!matchesCuisine(r) || !matchesStyle(r) || !techOk(r)) return;
     const ok = r.ing.every(([id]) =>
       stock[id] > 0 || (state.staplesOwned && PRODUCT_BY_ID[id].staple));
     if (ok) pool[r.m].push({ r, cost: recipeCost(r, k), m: recipeMacro(r) });
@@ -1110,6 +1288,7 @@ function renderRecipesTab() {
           <span>У ${num(x.mac.ca * p.avgScale)} г</span>
           <span class="fi">кл. ${num(x.mac.fi * p.avgScale)} г</span>
         </div>
+        <div class="rec-tech">${techLabel(x.r)}</div>
         <div class="rec-times">в плане ${x.count} ${plural(x.count, 'раз', 'раза', 'раз')}</div>
       </div>`).join('')}</div>`;
 }
@@ -1166,14 +1345,33 @@ function servingSplitHtml(r, scale) {
     мясо и овощи немного теряют.</p>`;
 }
 
-function openRecipe(id) {
+function openRecipe(id, dayIdx) {
   const r = RECIPE_BY_ID[id];
   if (!r) return;
   const k = storeK(state.store);
-  const scale = state.plan ? state.plan.avgScale : 1;
+  /* Открыли из карточки дня — показываем порции именно этого дня.
+     В ленивом режиме блюдо «на 2 дня» готовится на оба дня сразу. */
+  let scale = state.plan ? state.plan.avgScale : 1;
+  let lazyNote = '';
+  const menu = state.plan ? state.plan.menu : null;
+  const day = menu && typeof dayIdx === 'number' ? menu[dayIdx] : null;
+  const mm = day ? day.meals.find(m => m.id === id) : null;
+  if (mm) {
+    scale = day.scale;
+    if (mm.lazy === 'cook2' && menu[dayIdx + 1]) {
+      scale = day.scale + menu[dayIdx + 1].scale;
+      lazyNote = `<div class="m-lazy">🍳 <b>Ленивое питание:</b> готовьте сразу на 2 дня — количества ниже уже
+        на оба дня. Половину уберите в холодильник в закрытом контейнере (до 48 часов) и завтра просто разогрейте.</div>`;
+    } else if (mm.lazy === 'left') {
+      lazyNote = `<div class="m-lazy left">🔁 <b>Сегодня готовить не нужно:</b> это вторая половина вчерашнего блюда.
+        Разогрейте порцию на плите или в микроволновке до горячего состояния.</div>`;
+    }
+  }
   const info = MEALS.find(m => m.id === r.m);
   const al = recipeAllergens(r);
   const mac = recipeMacro(r);
+  const tech = techUsedFor(r, state.tech);
+  const ppl = `${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')}`;
   $('#modalContent').innerHTML = `
     <div class="m-photo" style="background:${dishGradient(r)}">${r.img
       ? `<img src="${r.img}" alt="${r.n}">`
@@ -1182,8 +1380,14 @@ function openRecipe(id) {
     <div class="m-meta">
       <span>${info.icon} ${info.name}</span>
       <span>⏱ ${r.t} мин</span>
-      <span>💸 ${money(recipeCost(r, k) * scale)} на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')}</span>
+      <span>💸 ${money(recipeCost(r, k) * scale)} на ${ppl}${mm && mm.lazy === 'cook2' ? ' на 2 дня' : ''}</span>
     </div>
+    ${lazyNote}
+    <div class="m-sec">Что понадобится из техники</div>
+    <div class="m-tech">${tech.length
+      ? tech.map(t => `<span class="m-tech-item">${t.icon} ${t.name}</span>`).join('')
+      : '<span class="m-tech-item">🥄 Готовить не нужно — только нож и миска</span>'}</div>
+    ${techTipsHtml(r, state.tech)}
     <div class="m-macro">
       <div><b>${num(mac.kc * scale)}</b><span>ккал всего</span></div>
       <div><b>${num(mac.pr * scale)} г</b><span>белки</span></div>
@@ -1191,15 +1395,15 @@ function openRecipe(id) {
       <div><b>${num(mac.ca * scale)} г</b><span>углеводы</span></div>
       <div><b>${num(mac.fi * scale)} г</b><span>клетчатка</span></div>
     </div>
-    ${servingSplitHtml(r, scale)}
-    <div class="m-sec">Продукты на ${peopleCount()} ${plural(peopleCount(), 'человека', 'человек', 'человек')} — порции под ваши нормы КБЖУ</div>
+    ${servingSplitHtml(r, mm && mm.lazy === 'cook2' ? day.scale : scale)}
+    <div class="m-sec">Продукты на ${ppl}${mm && mm.lazy === 'cook2' ? ' сразу на 2 дня' : ''} — порции под ваши нормы КБЖУ</div>
     ${r.ing.map(([pid, g]) => {
       const p = PRODUCT_BY_ID[pid];
       const total = g * PORTION * scale;
       return `<div class="m-ing"><span>${p.n}</span><span>${total >= 1000 ? kgLabel(total / 1000) : Math.round(total) + ' г'}</span></div>`;
     }).join('')}
     <div class="m-sec">Приготовление</div>
-    <ol class="m-steps">${r.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    ${stepsHtml(r)}
     ${al.length ? `<div class="m-sec">Содержит</div><div class="cr-tags">${al.map(a => {
       const A = ALLERGENS.find(x => x.id === a);
       return `<span class="cr-tag">${A.icon} ${A.name}</span>`;
@@ -1210,39 +1414,98 @@ function openRecipe(id) {
 
 function closeModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
 
-/* ---------- замена блюда ---------- */
-function swapMeal(dayIdx, type) {
-  const pool = buildPool();
-  const list = pool[type];
-  if (list.length < 2) return;
-  const day = state.plan.menu[dayIdx];
-  const cur = day.meals.find(m => m.type === type);
-  const curItem = list.find(x => x.r.id === cur.id) || list[0];
-  const neighbours = [];
-  [dayIdx - 2, dayIdx - 1, dayIdx + 1, dayIdx + 2].forEach(i => {
-    const d = state.plan.menu[i];
-    if (d) { const mm = d.meals.find(m => m.type === type); if (mm) neighbours.push(mm.id); }
-  });
-  /* берём блюдо схожей цены, но с белком не хуже текущего, если такие есть */
-  const cands = list.filter(x => x.r.id !== cur.id && neighbours.indexOf(x.r.id) === -1
-    && x.cost <= curItem.cost * 1.35 && x.cost >= curItem.cost * 0.6);
-  const better = cands.filter(x => x.m.pr >= curItem.m.pr * 0.9);
-  const pickFrom = better.length ? better : (cands.length ? cands : list.filter(x => x.r.id !== cur.id));
-  const pick = pickFrom[Math.floor(Math.random() * pickFrom.length)];
-  cur.id = pick.r.id;
-
-  /* пересчитываем масштаб порций и добор дня под норму */
+/* ---------- замена блюда ----------
+   Новое блюдо не должно повторять то, что уже есть в плане, и то, что
+   уже показывалось в этой ячейке при прошлых заменах. Если уникальные
+   блюда закончились (длинный план, мало рецептов), берём те, что не
+   стоят в соседние дни. В ленивом режиме меняется сразу пара
+   «готовим на два дня → едим остатки». */
+function recalcDay(day) {
   const T = state.plan.targets;
+  const Tf = foodTargets(T);
   const raw = { kc: 0, pr: 0, fa: 0, ca: 0, fi: 0 };
   day.meals.forEach(m => {
     const mac = recipeMacro(RECIPE_BY_ID[m.id]);
     raw.kc += mac.kc; raw.pr += mac.pr; raw.fa += mac.fa; raw.ca += mac.ca; raw.fi += mac.fi;
   });
-  if (raw.kc > 0) day.scale = Math.round(clamp(T.kcal / raw.kc, 0.7, 1.7) * 100) / 100;
+  if (raw.kc > 0) day.scale = Math.round(dayScaleFor(raw, Tf) * 100) / 100;
   day.boost = buildBoost({
     kc: raw.kc * day.scale, pr: raw.pr * day.scale, fa: raw.fa * day.scale,
     ca: raw.ca * day.scale, fi: raw.fi * day.scale,
-  }, T);
+  }, Tf);
+}
+
+function swapCandidates(dayIdx, type) {
+  const pool = buildPool();
+  const list = pool[type];
+  const menu = state.plan.menu;
+  const day = menu[dayIdx];
+  const cur = day.meals.find(m => m.type === type);
+  if (!cur || list.length < 2) return null;
+
+  const used = {};
+  menu.forEach(d => d.meals.forEach(m => { used[m.id] = 1; }));
+  const near = {};
+  for (let i = dayIdx - 3; i <= dayIdx + 3; i++) {
+    const d = menu[i];
+    if (d) d.meals.forEach(m => { near[m.id] = 1; });
+  }
+  let tried = (cur.tried || []).slice();
+  if (tried.indexOf(cur.id) === -1) tried.push(cur.id);
+
+  let fresh = list.filter(x => !used[x.r.id] && tried.indexOf(x.r.id) === -1);
+  let level = 'new';
+  if (!fresh.length) {
+    level = 'nearfree';
+    fresh = list.filter(x => tried.indexOf(x.r.id) === -1 && !near[x.r.id]);
+  }
+  if (!fresh.length) {
+    /* перебрали всё — начинаем круг заново, но без соседних дней */
+    level = 'cycle';
+    tried = [cur.id];
+    fresh = list.filter(x => x.r.id !== cur.id && !near[x.r.id]);
+    if (!fresh.length) fresh = list.filter(x => x.r.id !== cur.id);
+  }
+  return { list, cur, fresh, tried, level };
+}
+
+function swapMeal(dayIdx, type) {
+  const c = swapCandidates(dayIdx, type);
+  if (!c) {
+    const msg = 'Заменить не на что: при выбранных ограничениях для этого приёма пищи подходит одно блюдо.';
+    if (typeof window.appToast === 'function') window.appToast(msg);
+    else { const el = $('#notice'); if (el) { el.className = 'notice warn'; el.innerHTML = '<b>' + msg + '</b> Снимите часть исключений или отметьте больше техники.'; el.hidden = false; } }
+    return;
+  }
+  const menu = state.plan.menu;
+  const day = menu[dayIdx];
+  const { cur, list, fresh, tried } = c;
+  const curItem = list.find(x => x.r.id === cur.id) || list[Math.floor(list.length / 2)];
+
+  /* похожая цена и белок не хуже — чтобы не разнести бюджет и норму */
+  const inPrice = fresh.filter(x => x.cost <= curItem.cost * 1.35 && x.cost >= curItem.cost * 0.6);
+  const better = inPrice.filter(x => x.m.pr >= curItem.m.pr * 0.9);
+  let pickFrom = better.length ? better : inPrice;
+  if (!pickFrom.length) {
+    pickFrom = fresh.slice()
+      .sort((a, b) => Math.abs(a.cost - curItem.cost) - Math.abs(b.cost - curItem.cost))
+      .slice(0, 8);
+  }
+  const pick = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+
+  /* пара в ленивом режиме */
+  let partnerDay = null;
+  if (cur.lazy === 'cook2') partnerDay = menu[dayIdx + 1];
+  if (cur.lazy === 'left') partnerDay = menu[dayIdx - 1];
+  const partner = partnerDay ? partnerDay.meals.find(m => m.type === type && m.id === cur.id) : null;
+
+  const newTried = tried.slice(-60);
+  cur.id = pick.r.id;
+  cur.tried = newTried;
+  if (partner) { partner.id = pick.r.id; partner.tried = newTried; }
+
+  recalcDay(day);
+  if (partner) recalcDay(partnerDay);
 
   recalcPlan();
   renderAll();
@@ -1258,7 +1521,10 @@ function renderAll() {
     `${state.cuisines.length ? state.cuisines.map(c => CUISINES.find(x => x.id === c).name.toLowerCase()).join(', ') : 'все кухни'} · ` +
     `${state.days} ${plural(state.days, 'день', 'дня', 'дней')} · ${peopleLabel()} · ` +
     `${state.mealsCount} ${plural(state.mealsCount, 'приём', 'приёма', 'приёмов')} пищи · «${STORES.find(s => s.id === state.store).name}»` +
-    (state.excluded.length ? ` · без: ${state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')}` : '');
+    (state.excluded.length ? ` · без: ${state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')}` : '') +
+    (state.lazy ? ' · ленивое питание' : '') +
+    (state.tech.length < TECH.length ? ` · техника: ${state.tech.length ? state.tech.map(t => TECH.find(x => x.id === t).name.toLowerCase()).join(', ') : 'без готовки'}` : '') +
+    (suppList().length ? ` · добавки: ${suppList().length}` : '');
   /* Каждый блок рисуем отдельно: если один споткнётся на старых данных,
      остальные всё равно отрисуются — раньше падение в меню оставляло
      покупки и рецепты пустыми. */
@@ -1382,7 +1648,165 @@ function initForm() {
   $('#optNoPork').addEventListener('change', e => { state.noPork = e.target.checked; saveSettings(); });
   $('#optStaples').addEventListener('change', e => { state.staplesOwned = e.target.checked; saveSettings(); });
 
+  initExtraOptions();
+
   $('#planForm').addEventListener('submit', e => { e.preventDefault(); run(); });
+}
+
+/* ============================================================
+   ТЕХНИКА, ДОБАВКИ, ЛЕНИВОЕ ПИТАНИЕ — элементы формы
+   ============================================================ */
+function renderTech() {
+  const box = $('#techList');
+  if (!box) return;
+  box.innerHTML = TECH.map(t => `
+    <button type="button" class="chip tech-chip${state.tech.indexOf(t.id) !== -1 ? ' active' : ''}" data-tech="${t.id}"
+      aria-pressed="${state.tech.indexOf(t.id) !== -1}">
+      <span class="tc-check" aria-hidden="true"></span>
+      <span class="tc-ic">${t.icon}</span>
+      <span class="tc-text"><b>${t.name}</b><small>${t.desc}</small></span>
+    </button>`).join('');
+}
+
+/* сколько блюд можно приготовить имеющейся техникой */
+function updateTechCount() {
+  const el = $('#techCount');
+  if (!el) return;
+  const pool = buildPool();
+  const n = activeMeals().reduce((a, m) => a + pool[m].length, 0);
+  const empty = activeMeals().filter(m => !pool[m].length);
+  el.textContent = empty.length
+    ? `Сейчас нет ни одного блюда для: ${empty.map(m => MEALS.find(x => x.id === m).name.toLowerCase()).join(', ')} — отметьте ещё технику.`
+    : `Подходит ${n} ${plural(n, 'блюдо', 'блюда', 'блюд')}.`;
+  el.classList.toggle('warn-text', !!empty.length);
+}
+
+function renderSupp() {
+  const box = $('#suppBox');
+  const sw = $('#optSupp');
+  if (!box || !sw) return;
+  sw.checked = !!state.supp.on;
+  box.hidden = !state.supp.on;
+  if (!state.supp.on) return;
+  const adults = adultCount();
+  const items = state.supp.items || {};
+  const takers = suppTakers();
+  const takersRow = adults > 1 ? `
+    <div class="supp-takers">
+      <span>Сколько взрослых принимает</span>
+      <div class="chips">${Array.from({ length: adults }, (_, i) => i + 1).map(n =>
+        `<button type="button" class="chip${n === takers ? ' active' : ''}" data-takers="${n}">${n}</button>`).join('')}</div>
+    </div>` : '';
+  const card = s => {
+    const on = items[s.id] > 0;
+    const serv = on ? clamp(items[s.id], 1, s.maxServ) : 1;
+    const macro = suppMacroText(s, serv);
+    return `<div class="supp-item${on ? ' on' : ''}" data-supp="${s.id}">
+      <label class="supp-check">
+        <input type="checkbox" data-supp-cb="${s.id}"${on ? ' checked' : ''}>
+        <span class="supp-ic">${s.icon}</span>
+        <span class="supp-text"><b>${s.name}</b><small>${s.dose} · <span data-supp-macro="${s.id}">${macro}</span></small></span>
+      </label>
+      ${on && s.maxServ > 1 ? `<div class="supp-range">
+        <span>Порций в день: <b data-supp-serv="${s.id}">${serv}</b></span>
+        <input type="range" min="1" max="${s.maxServ}" step="1" value="${serv}" data-supp-range="${s.id}" aria-label="Порций в день: ${s.name}">
+      </div>` : ''}
+    </div>`;
+  };
+  const withKcal = SUPPLEMENTS.filter(s => s.kc > 0);
+  const vitamins = SUPPLEMENTS.filter(s => !s.kc);
+  box.innerHTML = `
+    ${adults ? '' : '<p class="hint hint-warn">Добавки учитываются только для взрослых — в списке едоков сейчас одни дети.</p>'}
+    ${takersRow}
+    <div class="supp-group-title">Спортивное питание и клетчатка — засчитываются в КБЖУ</div>
+    <div class="supp-grid">${withKcal.map(card).join('')}</div>
+    <div class="supp-group-title">Витамины и минералы — отмечаются в меню, калорий не дают</div>
+    <div class="supp-grid">${vitamins.map(card).join('')}</div>
+    <p class="hint supp-note"><span data-supp-sum>${suppSummaryText()}</span> Детям добавки здесь не назначаются.
+    Стоимость добавок в бюджет продуктов не входит. Дозировку согласуйте с врачом.</p>`;
+}
+
+/* «240 ккал · Б 48 г» — только ненулевые значения */
+function suppMacroText(s, serv) {
+  if (!s.kc) return 'без калорий';
+  const parts = [num(s.kc * serv) + ' ккал'];
+  if (s.pr >= 1) parts.push('Б ' + num(s.pr * serv) + ' г');
+  if (s.fa >= 1 && s.pr < 1) parts.push('Ж ' + num(s.fa * serv) + ' г');
+  if (s.ca >= 10) parts.push('У ' + num(s.ca * serv) + ' г');
+  if (s.fi >= 1) parts.push('клетч. ' + num(s.fi * serv) + ' г');
+  return parts.join(' · ');
+}
+
+function suppSummaryText() {
+  const list = suppList();
+  if (!list.length) return 'Отметьте, что принимаете.';
+  const sp = suppDaily();
+  if (sp.kc < 1 && sp.pr < 0.5) return `Отмечено: ${list.length}. На КБЖУ эти добавки не влияют.`;
+  return `Отмечено: ${list.length}. В день добавки дадут ${num(sp.kc)} ккал и ${num(sp.pr)} г белка` +
+    (sp.fi >= 1 ? `, ${num(sp.fi)} г клетчатки` : '') + ' — на столько меньше подберётся еды.';
+}
+
+function initExtraOptions() {
+  renderTech();
+  const tl = $('#techList');
+  if (tl) tl.addEventListener('click', e => {
+    const b = e.target.closest('[data-tech]');
+    if (!b) return;
+    const id = b.dataset.tech;
+    const i = state.tech.indexOf(id);
+    if (i === -1) state.tech.push(id); else state.tech.splice(i, 1);
+    b.classList.toggle('active', i === -1);
+    b.setAttribute('aria-pressed', String(i === -1));
+    saveSettings();
+  });
+
+  const lz = $('#optLazy');
+  if (lz) lz.addEventListener('change', e => { state.lazy = e.target.checked; saveSettings(); });
+
+  const sw = $('#optSupp');
+  if (sw) sw.addEventListener('change', e => {
+    state.supp.on = e.target.checked;
+    renderSupp();
+    saveSettings();
+  });
+  const box = $('#suppBox');
+  if (box) {
+    box.addEventListener('change', e => {
+      const cb = e.target.closest('[data-supp-cb]');
+      if (cb) {
+        const id = cb.dataset.suppCb;
+        if (cb.checked) state.supp.items[id] = state.supp.items[id] > 0 ? state.supp.items[id] : 1;
+        else delete state.supp.items[id];
+        renderSupp();
+        saveSettings();
+        return;
+      }
+      const rg = e.target.closest('[data-supp-range]');
+      if (rg) { saveSettings(); renderSupp(); }
+    });
+    /* ползунок: цифры меняем на лету, пересчёт — когда отпустили */
+    box.addEventListener('input', e => {
+      const rg = e.target.closest('[data-supp-range]');
+      if (!rg) return;
+      const id = rg.dataset.suppRange;
+      const s = SUPPLEMENTS.find(x => x.id === id);
+      const v = clamp(+rg.value, 1, s.maxServ);
+      state.supp.items[id] = v;
+      const sv = box.querySelector(`[data-supp-serv="${id}"]`);
+      if (sv) sv.textContent = v;
+      const mc = box.querySelector(`[data-supp-macro="${id}"]`);
+      if (mc) mc.textContent = suppMacroText(s, v);
+      const sum = box.querySelector('[data-supp-sum]');
+      if (sum) sum.textContent = suppSummaryText();
+    });
+    box.addEventListener('click', e => {
+      const t = e.target.closest('[data-takers]');
+      if (!t) return;
+      state.supp.takers = +t.dataset.takers;
+      renderSupp();
+      saveSettings();
+    });
+  }
 }
 
 /* ---------- список едоков ---------- */
@@ -1485,6 +1909,7 @@ function renderPersons() {
   }));
 
   $('#kidsNote').hidden = !childCount();
+  if (state.supp && state.supp.on) renderSupp();
   $('#peopleSummary').textContent = peopleLabel();
   updateMealsHint();
 }
@@ -1559,6 +1984,10 @@ function applySettingsToForm() {
   $('#optVeg').checked = state.veg;
   $('#optNoPork').checked = state.noPork;
   $('#optStaples').checked = state.staplesOwned;
+  if ($('#optLazy')) $('#optLazy').checked = !!state.lazy;
+  renderTech();
+  renderSupp();
+  updateTechCount();
   updateGoalNumbers();
   updateStyleCounts();
   updateMealsHint();
@@ -1658,6 +2087,11 @@ function shoppingText() {
     });
     out += '\n';
   });
+  if (suppList().length) {
+    out += `--- ВИТАМИНЫ И ДОБАВКИ (не входят в сумму) ---\n`;
+    suppList().forEach(({ s, serv }) => { out += `${s.name} — ${s.dose}${serv > 1 ? ' ×' + serv : ''} в день\n`; });
+    out += '\n';
+  }
   if (p.shop.staples.length) {
     out += `--- УЖЕ ЕСТЬ ДОМА ---\n`;
     p.shop.staples.forEach(s => { out += `${s.p.n} — ~${kgLabel(s.needKg)}\n`; });
@@ -1692,7 +2126,7 @@ function initResultActions() {
 
   document.addEventListener('click', e => {
     const rec = e.target.closest('[data-recipe]');
-    if (rec) { openRecipe(rec.dataset.recipe); return; }
+    if (rec) { openRecipe(rec.dataset.recipe, rec.dataset.day !== undefined ? +rec.dataset.day : undefined); return; }
     const sw = e.target.closest('[data-swap]');
     if (sw) { const [d, t] = sw.dataset.swap.split(':'); swapMeal(+d, t); return; }
     if (e.target.closest('[data-close]')) closeModal();
@@ -1776,6 +2210,7 @@ function resyncPlan() {
 
 function saveSettings() {
   updateStyleCounts();
+  updateTechCount();
   updateBudgetHint();
   resyncPlan();
   try {
@@ -1784,7 +2219,7 @@ function saveSettings() {
       persons: state.persons, budget: state.budget, days: state.days,
       mealsCount: state.mealsCount, store: state.store,
       excluded: state.excluded, veg: state.veg, noPork: state.noPork,
-      staplesOwned: state.staplesOwned,
+      staplesOwned: state.staplesOwned, lazy: state.lazy, tech: state.tech, supp: state.supp,
     }));
   } catch (e) { /* приватный режим */ }
 }
@@ -1810,6 +2245,21 @@ function migratePersons(obj) {
     if (!obj.persons.length) obj.persons = [{ type: 'adult', sex: 'm', weight: 78, height: 176, age: 30, activity: 'light' }];
   }
   delete obj.people; delete obj.weight;
+  /* новые поля: техника и добавки — проверяем формат, иначе берём по умолчанию */
+  if (obj && 'tech' in obj) {
+    obj.tech = Array.isArray(obj.tech)
+      ? obj.tech.filter(id => TECH.some(t => t.id === id))
+      : TECH.map(t => t.id);
+  }
+  if (obj && 'supp' in obj) {
+    const sp = obj.supp && typeof obj.supp === 'object' ? obj.supp : {};
+    const items = {};
+    Object.keys(sp.items || {}).forEach(id => {
+      if (SUPPLEMENTS.some(x => x.id === id) && sp.items[id] > 0) items[id] = +sp.items[id];
+    });
+    obj.supp = { on: !!sp.on, items, takers: typeof sp.takers === 'number' ? sp.takers : null };
+  }
+  if (obj && 'lazy' in obj) obj.lazy = !!obj.lazy;
   return obj;
 }
 

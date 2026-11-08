@@ -4,7 +4,7 @@
    При каждом изменении файлов поднимайте VERSION — старый кэш
    удалится сам.
    ============================================================ */
-const VERSION = 'planmenu-v2';
+const VERSION = 'planmenu-v3';
 const ASSETS = [
   'app.html',
   'index.html',
@@ -30,6 +30,8 @@ const ASSETS = [
   'recipes-fit.js',
   'recipes-lean.js',
   'recipes-snacks.js',
+  'recipes-more.js',
+  'cooking.js',
   'app.js',
   'fridge-page.js',
   'catalog.js',

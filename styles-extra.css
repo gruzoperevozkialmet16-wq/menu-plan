@@ -514,3 +514,199 @@
   padding: 12px 16px; color: #7a5a1c !important;
 }
 .hint-warn b { color: #8a3f2b; }
+
+/* ============================================================
+   ЛЕНИВОЕ ПИТАНИЕ, ТЕХНИКА, ДОБАВКИ, ВРЕМЯ ШАГОВ
+   ============================================================ */
+.switch-accent em { color: var(--forest); }
+.warn-text { color: #8a3f2b; }
+
+/* --- техника: чипы с галочкой --- */
+.tech-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.tech-chip {
+  flex-direction: row !important; align-items: center; gap: 11px; text-align: left;
+  padding: 12px 14px; border-radius: var(--r-md);
+}
+.tech-chip .tc-check {
+  width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--line); flex: none;
+  display: grid; place-items: center; background: #fff; transition: .18s;
+}
+.tech-chip.active .tc-check { background: var(--gold-l); border-color: var(--gold-l); }
+.tech-chip.active .tc-check::after { content: '✓'; font-size: 13px; font-weight: 900; color: var(--forest); }
+.tech-chip .tc-ic { font-size: 20px; line-height: 1; }
+.tech-chip .tc-text { display: grid; gap: 1px; min-width: 0; }
+.tech-chip .tc-text b { font-size: 14px; }
+.tech-chip .tc-text small { font-size: 11.5px; }
+
+/* --- витамины и добавки --- */
+.supp-box { margin-top: 16px; display: grid; gap: 12px; animation: foldInX .3s ease both; }
+@keyframes foldInX { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.supp-takers { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
+.supp-takers .chip { padding: 7px 14px; min-width: 42px; justify-content: center; }
+.supp-group-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--gold);
+  font-weight: 800; margin-top: 4px;
+}
+.supp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.supp-item {
+  border: 1px solid var(--line); border-radius: var(--r-md); background: #fff;
+  transition: .2s cubic-bezier(.2, .7, .3, 1);
+}
+.supp-item.on { border-color: var(--forest); background: var(--green-l); box-shadow: inset 0 0 0 1px var(--forest); }
+.supp-check { display: flex; align-items: center; gap: 11px; padding: 12px 14px; cursor: pointer; }
+.supp-check input { width: 20px; height: 20px; accent-color: var(--forest); flex: none; cursor: pointer; margin: 0; }
+.supp-ic { font-size: 20px; line-height: 1; flex: none; }
+.supp-text { display: grid; gap: 2px; min-width: 0; }
+.supp-text b { font-size: 14px; }
+.supp-text small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+.supp-range {
+  display: grid; gap: 6px; padding: 0 14px 13px 45px;
+  font-size: 12px; font-weight: 700; color: var(--ink-2);
+}
+.supp-range b { color: var(--forest); font-size: 13px; }
+.supp-range input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px;
+  background: #ded9d0; outline: none; margin: 4px 0;
+}
+.supp-range input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--forest); box-shadow: 0 2px 5px rgba(0, 0, 0, .18); cursor: pointer;
+}
+.supp-range input[type=range]::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--forest); box-shadow: 0 2px 5px rgba(0, 0, 0, .18); cursor: pointer;
+}
+.supp-range input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: #ded9d0; }
+.supp-note { margin: 0; }
+
+.day-supp {
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+  font-size: 11.5px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.day-supp b { color: var(--green-d); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; width: 100%; }
+.day-supp span { background: var(--green-l); border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+.macro-supp {
+  margin-top: 14px; padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--green-l); color: var(--ink-2); font-size: 14px; line-height: 1.6;
+}
+.macro-supp b { color: var(--forest); }
+
+/* --- ленивое питание в карточке дня --- */
+.meal-lazy {
+  display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; line-height: 1.4;
+  border-radius: 8px; padding: 4px 9px;
+}
+.meal-lazy.cook { background: var(--gold-bg); color: #7a5a1c; }
+.meal-lazy.left { background: var(--green-l); color: var(--green-d); }
+.meal.is-left .meal-ic { opacity: .7; }
+.m-lazy {
+  margin: -6px 0 6px; padding: 13px 16px; border-radius: var(--r-md);
+  background: var(--gold-bg); border: 1px solid var(--gold-l); font-size: 14px; line-height: 1.55; color: #6b4f19;
+}
+.m-lazy.left { background: var(--green-l); border-color: #cfe2d7; color: var(--green-d); }
+
+/* --- техника в рецепте --- */
+.m-tech { display: flex; flex-wrap: wrap; gap: 8px; }
+.m-tech-item {
+  background: var(--cream); border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 13px; font-size: 13.5px; font-weight: 700;
+}
+.m-tech-tips { margin-top: 10px; display: grid; gap: 8px; }
+.m-tech-tips p {
+  margin: 0; padding: 11px 14px; border-radius: var(--r-md); background: #eef3f8;
+  color: #34506a; font-size: 13.5px; line-height: 1.55;
+}
+.rec-tech { font-size: 12px; color: var(--ink-2); font-weight: 700; margin-top: 10px; }
+
+/* --- время по шагам --- */
+.m-steps-head {
+  display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-3);
+  font-weight: 600; margin-bottom: 14px;
+}
+.m-steps-head b { color: var(--forest); }
+.m-steps-timed li { display: grid; gap: 6px; }
+.m-steps-timed .step-text { line-height: 1.5; }
+.step-time {
+  justify-self: start; display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: 12.5px; font-weight: 800; color: var(--forest);
+  background: var(--gold-bg); border: 1px solid var(--gold-l); border-radius: 999px;
+  padding: 4px 11px; line-height: 1.3;
+}
+button.step-time { cursor: pointer; transition: .18s; }
+button.step-time:hover { background: var(--gold-l); }
+button.step-time.started { background: var(--forest); color: #fff; border-color: var(--forest); }
+.step-time.approx { background: #fff; border-style: dashed; color: var(--ink-2); font-weight: 700; }
+.step-time.ahead { background: #eef3f8; border-color: #cfdce8; color: #34506a; }
+.m-steps-note { font-size: 12px; color: var(--ink-3); line-height: 1.55; margin: 4px 0 0; }
+
+/* --- таймеры готовки --- */
+/* таймеры живут вверху слева: снизу у приложения навигация и плашка покупок,
+   справа вверху — крестик закрытия рецепта */
+.cook-timers {
+  position: fixed; left: 16px; top: 84px; z-index: 400; display: grid; gap: 8px;
+  width: min(280px, calc(100vw - 96px)); grid-template-columns: minmax(0, 1fr);
+}
+.cook-timer { min-width: 0; }
+.app .cook-timers { top: calc(66px + env(safe-area-inset-top, 0px)); }
+.cook-timer {
+  display: flex; align-items: center; gap: 10px; background: var(--forest); color: #f4f1ea;
+  border-radius: var(--r-md); padding: 11px 12px 11px 16px; box-shadow: var(--shadow-lg);
+  animation: foldInX .25s ease both;
+}
+.cook-timer .ct-label { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cook-timer b { font-size: 18px; font-variant-numeric: tabular-nums; color: var(--gold-l); }
+.cook-timer button {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25);
+  background: none; color: #fff; cursor: pointer; font-size: 16px; line-height: 1; flex: none;
+}
+.cook-timer.done { background: var(--gold); animation: timerPulse 1s ease-in-out infinite; }
+.cook-timer.done b { color: #fff; }
+@keyframes timerPulse { 50% { transform: scale(1.03); } }
+
+/* ============================================================
+   ПЛАШКА «ЧТО КУПИЛИ» — исправления
+   Раньше в приложении она уезжала под нижнюю навигацию, основная кнопка
+   сливалась с фоном (тёмная на тёмном), а «Оставить как есть» ничего не делала.
+   ============================================================ */
+.bought-bar { align-items: center; }
+.bought-bar .bought-info { flex: 1 1 220px; min-width: 0; }
+.bought-actions .btn-primary {
+  background: var(--gold-l); color: var(--forest); border-color: var(--gold-l); box-shadow: none;
+}
+.bought-actions .btn-primary:hover { background: #f0e2c2; color: var(--forest); }
+.bought-bar.collapsed { padding: 10px 14px 10px 20px; }
+.bought-bar.collapsed .bought-info span { display: none; }
+.bought-bar.collapsed .bought-info b { font-size: 14px; }
+.bought-expand {
+  background: none; border: 1px solid rgba(244, 241, 234, .28); color: rgba(244, 241, 234, .85);
+  border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.bought-expand:hover { border-color: var(--gold-l); color: #fff; }
+.app .bought-bar { bottom: calc(var(--bar) + 10px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 560px) {
+  .bought-bar { padding: 14px 16px; gap: 12px; border-radius: var(--r-md); }
+  .bought-actions { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .bought-actions .btn { width: 100%; justify-content: center; text-align: center; padding: 11px 14px; }
+  .bought-bar.collapsed .bought-actions { width: auto; display: flex; }
+  .tech-chips { grid-template-columns: 1fr 1fr; }
+  .tech-chip { padding: 10px 11px; gap: 8px; }
+  .tech-chip .tc-text small { display: none; }
+  .supp-grid { grid-template-columns: 1fr; }
+}
+
+/* Крестик рецепта всегда под рукой: раньше он уезжал вверх вместе с текстом,
+   и чтобы закрыть длинный рецепт, приходилось листать к началу */
+.app .modal-close {
+  position: sticky; top: 0; float: right; margin: -14px -12px -34px 0;
+  box-shadow: 0 2px 10px rgba(16, 36, 28, .15);
+}
+.tech-chips { grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+.tech-chip { min-width: 0; }
+.tech-chip .tc-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bought-bar.collapsed { flex-wrap: nowrap; }
+.bought-bar.collapsed .bought-info { flex: 1 1 auto; }
+@media (max-width: 560px) {
+  .tech-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tech-chip .tc-text b { font-size: 13px; }
+  .tech-chip .tc-ic { font-size: 17px; }
+}

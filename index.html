@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ПланМеню — 525 рецептов, КБЖУ и список покупок под бюджет</title>
-<meta name="description" content="525 рецептов девяти кухонь. Укажите бюджет, цель (диета, ПП, набор массы), аллергии и магазин — сервис составит меню на неделю, месяц или два с расчётом КБЖУ и списком покупок по ценам Пятёрочки, Магнита и Ленты.">
+<title>ПланМеню — 594 рецепта, КБЖУ и список покупок под бюджет</title>
+<meta name="description" content="594 рецепта девяти кухонь. Укажите бюджет, цель (диета, ПП, набор массы), аллергии и магазин — сервис составит меню на неделю, месяц или два с расчётом КБЖУ и списком покупок по ценам Пятёрочки, Магнита и Ленты.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +40,7 @@
     <div class="wrap hero-inner">
       <div class="hero-text">
         <div class="badge">Каталог «Пятёрочки» и ещё 4 сети · цены <span id="priceDate"></span></div>
-        <h1>525 рецептов, КБЖУ и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
+        <h1>594 рецепта, КБЖУ и список покупок<br><span class="accent">точно под ваш бюджет</span></h1>
         <p class="lead">
           Выберите цель — диета, поддержание или набор массы, — стиль питания и кухню:
           от домашней до итальянской, азиатской и кавказской. Сервис соберёт меню на неделю,
@@ -184,10 +184,27 @@
         <div class="field">
           <label class="field-label"><span class="num">10</span> Дополнительно</label>
           <div class="switches">
+            <label class="switch switch-accent"><input type="checkbox" id="optLazy"><span class="slider"></span><em>Ленивое питание<small>обед и ужин готовите один раз — на второй день едите то же блюдо, готовить не нужно</small></em></label>
             <label class="switch"><input type="checkbox" id="optVeg"><span class="slider"></span><em>Вегетарианское меню<small>без мяса, птицы и рыбы</small></em></label>
             <label class="switch"><input type="checkbox" id="optNoPork"><span class="slider"></span><em>Без свинины<small>халяль-френдли подбор</small></em></label>
             <label class="switch"><input type="checkbox" id="optStaples" checked><span class="slider"></span><em>Соль, специи, масло уже есть<small>не считать их в бюджет</small></em></label>
           </div>
+        </div>
+
+        <!-- 11. Техника -->
+        <div class="field">
+          <label class="field-label"><span class="num">11</span> Кухонная техника</label>
+          <p class="hint">Отметьте, что есть дома, — в меню попадут только блюда, которые этим можно приготовить. В каждом рецепте будет написано, какая техника нужна. <b id="techCount"></b></p>
+          <div class="chips tech-chips" id="techList"></div>
+        </div>
+
+        <!-- 12. Витамины и добавки -->
+        <div class="field">
+          <label class="field-label"><span class="num">12</span> Витамины и добавки</label>
+          <div class="switches">
+            <label class="switch switch-accent"><input type="checkbox" id="optSupp"><span class="slider"></span><em>Принимаю витамины и добавки<small>протеин, гейнер, батончики и клетчатка засчитываются в КБЖУ — еды подберётся меньше</small></em></label>
+          </div>
+          <div class="supp-box" id="suppBox" hidden></div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-xl btn-block" id="submitBtn">
@@ -345,6 +362,8 @@
 <script src="recipes-fit.js"></script>
 <script src="recipes-lean.js"></script>
 <script src="recipes-snacks.js"></script>
+<script src="recipes-more.js"></script>
+<script src="cooking.js"></script>
 <script src="app.js"></script>
 <script src="nav.js"></script>
 </body>
