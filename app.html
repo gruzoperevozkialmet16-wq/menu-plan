@@ -201,6 +201,46 @@
         </div></div></div>
       </div>
 
+      <div class="fold" data-fold="lazy">
+        <button type="button" class="fold-head">
+          <span class="fold-num">9</span>
+          <span class="fold-text"><b>Ленивое питание</b><span id="foldLazy">выключено</span></span>
+          <span class="fold-arrow">▼</span>
+        </button>
+        <div class="fold-body"><div class="fold-inner"><div class="fold-pad">
+          <div class="switches">
+            <label class="switch switch-accent"><input type="checkbox" id="optLazy"><span class="slider"></span><em>Ленивое питание<small>обед и ужин готовите один раз — на второй день едите то же блюдо</small></em></label>
+          </div>
+          <p class="hint" style="margin-top:12px">Блюдо готовится сразу на два дня: количества в рецепте уже удвоены, вторую половину убираете в холодильник и завтра разогреваете. Завтраки и перекусы остаются разными.</p>
+        </div></div></div>
+      </div>
+
+      <div class="fold" data-fold="tech">
+        <button type="button" class="fold-head">
+          <span class="fold-num">10</span>
+          <span class="fold-text"><b>Кухонная техника</b><span id="foldTech">вся техника</span></span>
+          <span class="fold-arrow">▼</span>
+        </button>
+        <div class="fold-body"><div class="fold-inner"><div class="fold-pad">
+          <p class="hint">Отметьте, что есть дома, — в меню попадут только блюда, которые этим можно приготовить. <b id="techCount"></b></p>
+          <div class="chips tech-chips" id="techList"></div>
+        </div></div></div>
+      </div>
+
+      <div class="fold" data-fold="supp">
+        <button type="button" class="fold-head">
+          <span class="fold-num">11</span>
+          <span class="fold-text"><b>Витамины и добавки</b><span id="foldSupp">не принимаю</span></span>
+          <span class="fold-arrow">▼</span>
+        </button>
+        <div class="fold-body"><div class="fold-inner"><div class="fold-pad">
+          <div class="switches">
+            <label class="switch switch-accent"><input type="checkbox" id="optSupp"><span class="slider"></span><em>Принимаю витамины и добавки<small>протеин, гейнер и клетчатка засчитываются в КБЖУ</small></em></label>
+          </div>
+          <div class="supp-box" id="suppBox" hidden></div>
+        </div></div></div>
+      </div>
+
       <button type="submit" class="btn btn-primary btn-xl btn-block" id="submitBtn" style="margin-top:6px">
         Составить меню
       </button>
@@ -479,6 +519,8 @@
 <script src="recipes-fit.js"></script>
 <script src="recipes-lean.js"></script>
 <script src="recipes-snacks.js"></script>
+<script src="recipes-more.js"></script>
+<script src="cooking.js"></script>
 <script src="app.js"></script>
 <script src="fridge-page.js"></script>
 <script src="catalog.js"></script>

@@ -39,6 +39,7 @@ try {
     if (Array.isArray(d.excluded)) st.excluded = d.excluded;
     st.veg = !!d.veg;
     st.noPork = !!d.noPork;
+    if (Array.isArray(d.tech)) st.tech = d.tech;
     if (Array.isArray(d.persons) && d.persons.length) st.persons = d.persons;
     else if (typeof d.people === 'number') {
       st.persons = [];
@@ -137,6 +138,11 @@ function fpRecipeCost(r, k) {
 function fpRecipeHas(r, ids) { return r.ing.some(([id]) => ids.indexOf(id) !== -1); }
 
 /* ---------- модалка рецепта ---------- */
+/* техника, отмеченная в планировщике; если не отмечали — вся */
+function fpTech() {
+  return Array.isArray(st.tech) ? st.tech : (typeof TECH !== 'undefined' ? TECH.map(t => t.id) : []);
+}
+
 function fpOpenRecipe(id) {
   const r = RECIPE_BY_ID[id];
   if (!r) return;
@@ -167,8 +173,12 @@ function fpOpenRecipe(id) {
       const total = g * PORTION * n;
       return `<div class="m-ing"><span>${p.n}</span><span>${total >= 1000 ? kgLabel(total / 1000) : Math.round(total) + ' г'}</span></div>`;
     }).join('')}
+    ${typeof techLabelFor === 'function' ? `<div class="m-sec">Что понадобится из техники</div>
+    <div class="m-tech">${techUsedFor(r, fpTech()).map(t => `<span class="m-tech-item">${t.icon} ${t.name}</span>`).join('') ||
+      '<span class="m-tech-item">🥄 Готовить не нужно — только нож и миска</span>'}</div>
+    ${techTipsHtml(r, fpTech())}` : ''}
     <div class="m-sec">Приготовление</div>
-    <ol class="m-steps">${r.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    ${typeof stepsHtml === 'function' ? stepsHtml(r) : `<ol class="m-steps">${r.steps.map(s => `<li>${s}</li>`).join('')}</ol>`}
     ${al.length ? `<div class="m-sec">Содержит</div><div class="cr-tags">${al.map(a => {
       const A = ALLERGENS.find(x => x.id === a);
       return `<span class="cr-tag">${A.icon} ${A.name}</span>`;
@@ -178,12 +188,17 @@ function fpOpenRecipe(id) {
 }
 function fpCloseModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
 
-document.addEventListener('click', e => {
-  const rec = e.target.closest('[data-recipe]');
-  if (rec) { openRecipe(rec.dataset.recipe); return; }
-  if (e.target.closest('[data-close]')) closeModal();
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+/* В приложении карточки открывает планировщик (app.js) — у него свой
+   обработчик. На отдельной странице «Холодильник» открываем сами: раньше
+   здесь вызывались функции планировщика, которых на этой странице нет. */
+if (!shared) {
+  document.addEventListener('click', e => {
+    const rec = e.target.closest('[data-recipe]');
+    if (rec) { fpOpenRecipe(rec.dataset.recipe); return; }
+    if (e.target.closest('[data-close]')) fpCloseModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fpCloseModal(); });
+}
 
 const fridge = {
   have: [],          /* id продуктов, которые есть дома */

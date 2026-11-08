@@ -99,6 +99,16 @@
     $('#foldAllergens').textContent = state.excluded.length
       ? 'без: ' + state.excluded.map(a => ALLERGENS.find(x => x.id === a).name.toLowerCase()).join(', ')
       : (state.veg ? 'вегетарианское' : 'ничего не исключено');
+    const set = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
+    set('#foldLazy', state.lazy ? 'включено — блюда на 2 дня' : 'выключено');
+    if (Array.isArray(state.tech)) {
+      set('#foldTech', state.tech.length === TECH.length ? 'вся техника'
+        : (state.tech.length ? state.tech.map(t => TECH.find(x => x.id === t).name).join(', ') : 'ничего — блюда без готовки'));
+    }
+    if (state.supp) {
+      const n = typeof suppList === 'function' ? suppList().length : 0;
+      set('#foldSupp', !state.supp.on ? 'не принимаю' : (n ? 'отмечено: ' + n : 'ничего не отмечено'));
+    }
   }
 
   /* ---------- всплывающие подсказки ---------- */
