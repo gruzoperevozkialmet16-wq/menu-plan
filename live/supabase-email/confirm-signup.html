@@ -1,0 +1,93 @@
+<!--
+  ПИСЬМО «ПОДТВЕРДИТЕ ПОЧТУ» — ПланМеню
+  ------------------------------------------------------------
+  Куда вставлять: панель Supabase → Authentication → Emails →
+  вкладка «Confirm signup» → поле Message body.
+  Тема письма (Subject heading): Подтвердите почту — ПланМеню
+
+  Вёрстка таблицами и стили прописаны прямо в тегах: почтовые
+  клиенты (Mail.ru, Яндекс, Gmail, Outlook) внешние стили и
+  шрифты вырезают, поэтому здесь только то, что они понимают.
+
+  {{ .ConfirmationURL }} — ссылку подставляет Supabase.
+  {{ .Email }} — почта, на которую пришло письмо.
+-->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf8f4;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #e7e2d9;border-radius:18px;overflow:hidden;">
+
+        <!-- шапка -->
+        <tr>
+          <td style="background:#10241c;padding:26px 30px;">
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding-right:12px;font-size:26px;line-height:1;">&#129367;</td>
+                <td>
+                  <div style="color:#ffffff;font-size:19px;font-weight:bold;letter-spacing:-0.2px;">План<span style="color:#e5d3ac;">Меню</span></div>
+                  <div style="color:rgba(244,241,234,0.62);font-size:11px;padding-top:3px;">сервис планирования питания</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- текст -->
+        <tr>
+          <td style="padding:32px 30px 8px 30px;">
+            <div style="color:#101d18;font-size:22px;font-weight:bold;padding-bottom:14px;">Подтвердите почту</div>
+            <div style="color:#4d5f57;font-size:15px;line-height:1.6;">
+              Вы создали аккаунт в ПланМеню на адрес
+              <b style="color:#101d18;">{{ .Email }}</b>.
+              Введите этот код на сайте, чтобы подтвердить почту:
+            </div>
+          </td>
+        </tr>
+
+        <!-- код -->
+        <tr>
+          <td align="center" style="padding:24px 30px 10px 30px;">
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td align="center" bgcolor="#f7f1e4" style="border:1px solid #e5d3ac;border-radius:14px;padding:22px 16px;">
+                  <div style="color:#101d18;font-size:36px;font-weight:bold;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{ .Token }}</div>
+                  <div style="color:#7a5a1c;font-size:12px;padding-top:10px;">код действует один час</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- что дальше -->
+        <tr>
+          <td style="padding:0 30px 26px 30px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f1e4;border:1px solid #e5d3ac;border-radius:12px;">
+              <tr>
+                <td style="padding:16px 18px;color:#7a5a1c;font-size:13px;line-height:1.6;">
+                  <b style="display:block;padding-bottom:5px;">Что даёт аккаунт</b>
+                  Сохраняет составленные меню и покупки: видно, что и на какую сумму
+                  вы взяли в каждый поход в магазин. Настройки семьи и аллергии
+                  привязаны к аккаунту, а не к телефону.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- подвал -->
+        <tr>
+          <td style="background:#faf8f4;border-top:1px solid #e7e2d9;padding:18px 30px;">
+            <div style="color:#8b9791;font-size:12px;line-height:1.6;">
+              Если вы не регистрировались в ПланМеню — просто удалите это письмо,
+              аккаунт активирован не будет.
+            </div>
+            <div style="color:#8b9791;font-size:11px;padding-top:10px;">
+              © ПланМеню · <a href="https://menu-plan-seven.vercel.app" style="color:#226047;text-decoration:none;">menu-plan-seven.vercel.app</a>
+            </div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>

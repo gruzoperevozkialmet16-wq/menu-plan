@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Личный кабинет — подписка и история покупок | ПланМеню</title>
+<meta name="description" content="Аккаунт ПланМеню: подписка, история составленных меню и сохранённые покупки — что и на какую сумму вы купили по списку.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles-extra.css">
+<link rel="stylesheet" href="styles-account.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark"><i>🥗</i></span>
+      <span class="brand-text">
+        <b>План<em>Меню</em></b>
+        <span>сервис планирования питания</span>
+      </span>
+    </a>
+    <nav class="header-nav">
+      <a href="fridge.html">Холодильник</a>
+      <a href="catalog.html">Каталог и цены</a>
+      <a href="about.html">Информация</a>
+      <a href="app.html">Приложение</a>
+      <a class="btn btn-sm btn-primary" href="./#planner">Составить меню</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ ШАПКА РАЗДЕЛА ============ -->
+  <section class="acc-hero">
+    <div class="wrap">
+      <a class="back-link" href="./">← На главную</a>
+      <span class="eyebrow">Личный кабинет</span>
+      <h1 class="section-title" id="accHeroTitle">Ваш аккаунт</h1>
+      <p class="section-sub" id="accHeroSub">
+        Аккаунт хранит подписку, все составленные меню и покупки: видно, что и на какую
+        сумму вы брали в каждый поход в магазин.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ ВХОД / РЕГИСТРАЦИЯ ============ -->
+  <section class="section acc-auth-wrap" id="authBlock">
+    <div class="wrap acc-auth-grid">
+
+      <div class="card acc-auth">
+        <div class="acc-tabs" id="authTabs">
+          <button type="button" class="active" data-mode="login">Вход</button>
+          <button type="button" data-mode="register">Регистрация</button>
+        </div>
+
+        <form class="acc-form" id="authForm" autocomplete="on">
+          <p class="acc-reset-hint" id="resetHint" hidden></p>
+
+          <label class="field" id="fieldName" hidden>
+            <span class="field-label">Как к вам обращаться</span>
+            <input type="text" id="authName" placeholder="Имя" autocomplete="name">
+          </label>
+
+          <label class="field">
+            <span class="field-label">Почта</span>
+            <input type="email" id="authEmail" placeholder="you@mail.ru" autocomplete="email" required>
+          </label>
+
+          <label class="field" id="fieldCode" hidden>
+            <span class="field-label">Код из письма</span>
+            <input type="text" id="authCode" placeholder="код из письма" maxlength="10"
+                   inputmode="numeric" autocomplete="one-time-code">
+          </label>
+
+          <label class="field" id="fieldPassword">
+            <span class="field-label">Пароль</span>
+            <input type="password" id="authPassword" placeholder="не короче 6 символов"
+                   autocomplete="current-password" required minlength="6">
+            <button type="button" class="field-eye" id="authEye" aria-label="Показать пароль">👁</button>
+          </label>
+          <p class="acc-forgot" id="forgotRow">
+            <button type="button" class="link-btn" id="forgotLink">Забыли пароль?</button>
+          </p>
+
+
+          <p class="acc-error" id="authError" hidden></p>
+
+          <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Войти</button>
+
+          <p class="acc-switch">
+            <span id="authSwitchText">Ещё нет аккаунта?</span>
+            <button type="button" class="link-btn" id="authSwitch">Зарегистрироваться</button>
+          </p>
+        </form>
+      </div>
+
+      <div class="acc-why">
+        <h3>Зачем аккаунт</h3>
+        <ul class="acc-why-list">
+          <li><i>🧾</i><div><b>История покупок</b><span>Отмечаете в магазине галочками, что взяли, — покупка сохраняется с суммой и списком.</span></div></li>
+          <li><i>🗂️</i><div><b>История меню</b><span>Все планы с бюджетом, КБЖУ и составом — можно вернуться к удачному и повторить.</span></div></li>
+          <li><i>⭐</i><div><b>Подписка</b><span>Меню на месяц и два, полная история и экспорт списка покупок.</span></div></li>
+          <li><i>📱</i><div><b>Одни настройки</b><span>Состав семьи, аллергии и магазин привязаны к аккаунту, а не к устройству.</span></div></li>
+        </ul>
+
+        <div class="acc-note" id="storageNote"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ КАБИНЕТ ============ -->
+  <section class="section acc-panel" id="panelBlock" hidden>
+    <div class="wrap">
+
+      <!-- профиль и подписка -->
+      <div class="acc-top">
+        <div class="card acc-profile">
+          <div class="acc-avatar" id="profAvatar">?</div>
+          <div class="acc-profile-body">
+            <h3 id="profName">—</h3>
+            <p id="profEmail">—</p>
+            <p class="acc-since" id="profSince">—</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnLogout">Выйти</button>
+        </div>
+
+        <div class="card acc-sub" id="subCard">
+          <div class="acc-sub-head">
+            <span class="eyebrow">Подписка</span>
+            <span class="acc-badge" id="subBadge">Базовый</span>
+          </div>
+          <h3 id="subTitle">Базовый тариф</h3>
+          <p id="subText">Меню на неделю и на две недели, все рецепты и список покупок.</p>
+          <div class="acc-sub-actions" id="subActions"></div>
+        </div>
+      </div>
+
+      <!-- цифры -->
+      <div class="acc-stats" id="accStats"></div>
+
+      <!-- тарифы -->
+      <div class="acc-block" id="tiersBlock">
+        <div class="acc-block-head">
+          <h2 class="section-title sm">Тарифы</h2>
+          <p class="section-sub" id="tiersSub"></p>
+        </div>
+        <div class="acc-tiers" id="tierCards"></div>
+        <p class="acc-pay-note" id="payNote"></p>
+      </div>
+
+      <!-- история -->
+      <div class="acc-block">
+        <div class="acc-block-head">
+          <h2 class="section-title sm">История</h2>
+          <p class="section-sub">Планы сохраняются сами при каждом расчёте. Покупки — когда вы отмечаете купленное в списке и нажимаете «Сохранить покупку».</p>
+        </div>
+
+        <div class="acc-histtabs" id="histTabs">
+          <button type="button" class="active" data-tab="orders">Меню <b id="cntOrders">0</b></button>
+          <button type="button" data-tab="purchases">Покупки <b id="cntPurchases">0</b></button>
+        </div>
+
+        <div id="histBody"></div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<section class="legal">
+  <div class="wrap">
+    <div class="legal-box">
+      <span class="legal-ic">⚖️</span>
+      <div>
+        <h4>О данных аккаунта</h4>
+        <p><b>Мы не просим лишнего.</b> Для аккаунта нужны только почта и пароль. Ни номера
+        карт, ни паспортных данных, ни адреса сервис не запрашивает и не хранит.</p>
+        <p id="legalWhere"><b>Где лежат данные.</b></p>
+        <p><b>Оплата.</b> Приём платежей на сайте не подключён: карту здесь ввести нельзя
+        и деньги через сайт не проходят. Статус подписки выставляется вручную владельцем
+        сервиса после оплаты выбранным способом.</p>
+      </div>
+    </div>
+    <div class="legal-copy">
+      <span>© 2026 ПланМеню. Все права защищены.</span>
+      <span id="legalStorage">Расчёт выполняется в браузере</span>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div>
+      <a class="brand brand-light" href="./">
+        <span class="brand-mark"><i>🥗</i></span>
+        <span class="brand-text">
+          <b>План<em>Меню</em></b>
+          <span>сервис планирования питания</span>
+        </span>
+      </a>
+      <p>Планировщик питания под бюджет и КБЖУ. Аккаунт хранит подписку и историю ваших покупок.</p>
+    </div>
+    <div class="footer-links">
+      <a href="./#planner">Составить меню</a>
+      <a href="fridge.html">Холодильник</a>
+      <a href="catalog.html">Каталог и цены</a>
+      <a href="about.html">Информация</a>
+      <a href="app.html">Приложение</a>
+      <a href="account.html">Личный кабинет</a>
+    </div>
+  </div>
+</footer>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close aria-label="Закрыть">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="metrika.js"></script>
+<script src="account.js"></script>
+<script src="account-page.js"></script>
+<script src="nav.js"></script>
+</body>
+</html>
