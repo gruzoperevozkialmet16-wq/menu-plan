@@ -4,17 +4,19 @@
    При каждом изменении файлов поднимайте VERSION — старый кэш
    удалится сам.
    ============================================================ */
-const VERSION = 'planmenu-v3';
+const VERSION = 'planmenu-v17';
 const ASSETS = [
   'app.html',
   'index.html',
   'fridge.html',
   'catalog.html',
   'about.html',
+  'account.html',
   'styles.css',
   'styles-extra.css',
   'styles-app.css',
   'styles-about.css',
+  'styles-account.css',
   'data.js',
   'products2.js',
   'recipes.js',
@@ -37,6 +39,10 @@ const ASSETS = [
   'catalog.js',
   'about.js',
   'nav.js',
+  'config.js',
+  'metrika.js',
+  'account.js',
+  'account-page.js',
   'app-shell.js',
   'manifest.webmanifest',
   'icons/icon-192.png',

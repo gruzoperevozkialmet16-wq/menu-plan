@@ -202,7 +202,13 @@
   font-size: 11.5px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 .day-boost b { color: var(--gold); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; width: 100%; }
-.day-boost span { background: var(--gold-bg); border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+.day-boost .db-hint { width: 100%; background: none; padding: 0; font-size: 10.5px; color: var(--ink-3); font-weight: 500; margin: -2px 0 2px; }
+.day-boost .db-item {
+  background: var(--gold-bg); border-radius: 12px; padding: 5px 11px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px 9px; flex-wrap: wrap;
+}
+.day-boost .db-item em { font-style: normal; color: var(--ink); font-weight: 700; }
+.day-boost .db-item .db-who { font-style: normal; color: var(--gold); font-weight: 700; white-space: nowrap; }
 
 .rec-art, .fr-art {
   height: 104px; border-radius: var(--r-md); display: grid; place-items: center;
@@ -403,6 +409,10 @@
 
 /* ================= АДАПТИВ ================= */
 @media (max-width: 980px) {
+  /* КБЖУ нужен и на узком экране, но в одну строку с ним не помещаются
+     название, упаковка и цена. Переносим его на свою строку — тогда цена
+     остаётся в первой строке, рядом с товаром. */
+  .cr-macro { flex: 1 0 100%; order: 3; min-width: 0; font-size: 11.5px; }
   .catalog-panel { position: static; }
   .catalog-stats { gap: 24px; }
   .catalog-stats b { font-size: 22px; }
@@ -412,8 +422,6 @@
 }
 @media (max-width: 560px) {
   .m-macro { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
-  /* КБЖУ в каталоге нужен и на телефоне — просто переносим на свою строку */
-  .cr-macro { flex: 1 0 100%; order: 3; min-width: 0; font-size: 11.5px; }
   .fridge-suggest { left: 18px; right: 18px; top: 86px; }
   .macro-head { flex-direction: column; }
   .macro-portion { text-align: left; }
@@ -514,6 +522,53 @@
   padding: 12px 16px; color: #7a5a1c !important;
 }
 .hint-warn b { color: #8a3f2b; }
+
+/* ================= ЧИП АККАУНТА В ШАПКЕ ================= */
+.acc-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px 6px 6px; border-radius: 999px;
+  border: 1px solid var(--line); background: #fff;
+  font-weight: 700; font-size: 13.5px; color: var(--ink-2);
+  transition: border-color .2s ease, color .2s ease, box-shadow .2s ease;
+  max-width: 190px;
+}
+.acc-chip:hover { border-color: var(--forest); color: var(--forest); box-shadow: var(--shadow-xs); }
+.acc-chip i {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-style: normal; font-size: 13px;
+  background: var(--green-l); color: var(--green-d); font-weight: 800;
+}
+.acc-chip.signed i { background: var(--forest); color: var(--gold-l); }
+.acc-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-chip em.acc-pro {
+  font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gold);
+  background: var(--gold-bg); border: 1px solid var(--gold-l);
+  border-radius: 6px; padding: 2px 6px; flex: none;
+}
+.acc-chip::after { display: none !important; }
+
+@media (max-width: 980px) {
+  .acc-chip { max-width: none; justify-content: flex-start; margin: 6px 8px 0; }
+}
+
+/* ================= ПЕРИОД ПО ПОДПИСКЕ ================= */
+.chip-locked { position: relative; opacity: .55; }
+.chip-locked::after {
+  content: '🔒'; position: absolute; top: 5px; right: 7px; font-size: 10px; opacity: .75;
+}
+.chip-locked:hover { border-color: var(--gold); opacity: .8; }
+.hint-lock {
+  background: var(--green-l); border: 1px solid #d5e6dd; border-radius: var(--r-md);
+  padding: 11px 15px; color: var(--green-d) !important; font-weight: 600;
+}
+.hint-lock a { color: var(--green-d); border-bottom: 1px solid rgba(34, 96, 71, .4); }
+.hint-lock a:hover { color: var(--forest); border-color: var(--forest); }
+
+.bought-actions .btn-gold { margin-left: auto; }
+@media (max-width: 640px) {
+  .bought-actions .btn-gold { margin-left: 0; width: 100%; }
+}
 
 /* ============================================================
    ЛЕНИВОЕ ПИТАНИЕ, ТЕХНИКА, ДОБАВКИ, ВРЕМЯ ШАГОВ

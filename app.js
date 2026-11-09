@@ -451,6 +451,38 @@ function boostMacro(boost) {
   return s;
 }
 
+/* Добор — тоже на всю семью. Делим его по людям: белковый (творог, яйца,
+   грудка) — по норме белка каждого, клетчатку — по калориям. Так видно,
+   что «20 г творога» — это конкретному человеку, а не одна щепотка на всех. */
+function boostSplit(b) {
+  const T = targets();
+  const p = PRODUCT_BY_ID[b.id];
+  const byProtein = p.pr >= 8;            /* творог, яйца, грудка, тофу, сыр */
+  const totalNorm = byProtein ? T.protein : T.kcal;
+  const per = T.per || [];
+  if (!per.length) return [{ name: 'вам', icon: '🍽️', grams: b.g, isChild: false }];
+  return per.map((x, i) => {
+    const norm = byProtein ? x.t.protein : x.t.kcal;
+    const share = totalNorm > 0 ? norm / totalNorm : 1 / per.length;
+    const icon = x.t.isChild ? (x.person.sex === 'f' ? '👧' : '👦') : sexOf(x.person).icon;
+    return {
+      name: x.t.isChild ? sexOf(x.person).childName : sexOf(x.person).name,
+      icon,
+      grams: b.g * share,
+      isChild: x.t.isChild,
+    };
+  });
+}
+
+/* Подпись количества добора: яйца — в штуках, остальное — в граммах/кг */
+function boostAmount(p, grams) {
+  if (p.id === 'eggs') {
+    const n = Math.max(1, Math.round(grams / 60));
+    return n + ' ' + plural(n, 'яйцо', 'яйца', 'яиц');
+  }
+  return grams >= 1000 ? kgLabel(grams / 1000) : Math.max(1, Math.round(grams)) + ' г';
+}
+
 /* Суммарные КБЖУ и стоимость дня (порции без подгонки) */
 function dayTotals(mealIds, pool) {
   const t = { kc: 0, pr: 0, fa: 0, ca: 0, fi: 0, cost: 0 };
@@ -997,14 +1029,19 @@ function renderMenu() {
         }).join('')}
         ${(day.boost && day.boost.length) ? `<div class="day-boost">
           <b>Добавить к приёмам пищи</b>
+          <span class="db-hint">добор до нормы белка и клетчатки — сколько кому:</span>
           ${day.boost.map(b => {
             const p = PRODUCT_BY_ID[b.id];
             const info = MEALS.find(x => x.id === (b.meal || 'snack'));
-            const per = b.g / Math.max(1, peopleCount());
-            const label = p.id === 'eggs'
-              ? Math.round(per / 60) + ' ' + plural(Math.round(per / 60), 'яйцо', 'яйца', 'яиц')
-              : (per >= 1000 ? kgLabel(per / 1000) : Math.round(per) + ' г');
-            return `<span title="на одного человека">${info.icon} ${p.n} — ${label}</span>`;
+            const rows = boostSplit(b);
+            const one = rows.length === 1;
+            const who = one
+              ? boostAmount(p, rows[0].grams)
+              : rows.map(x => `<i class="db-who" title="${x.name}">${x.icon} ${boostAmount(p, x.grams)}</i>`).join('');
+            return `<span class="db-item">
+              <em>${info.icon} ${p.n}${one ? ' — ' + who : ''}</em>
+              ${one ? '' : who}
+            </span>`;
           }).join('')}
         </div>` : ''}
         ${suppDayHtml()}
@@ -1109,7 +1146,7 @@ function renderBought() {
         <b>✓ ${got.length} из ${all.length} · ${money(sum)}</b>
       </div>
       <div class="bought-actions">
-        <button type="button" class="bought-expand" id="btnBoughtExpand">Пересобрать…</button>
+        <button type="button" class="bought-expand" id="btnBoughtExpand">Развернуть</button>
       </div>`;
     $('#btnBoughtExpand').addEventListener('click', () => { boughtCollapsed = false; renderBought(); });
     return;
@@ -1120,10 +1157,12 @@ function renderBought() {
       <b>Отмечено ${got.length} из ${all.length}</b>
       <span>на ${money(sum)}${left ? ' · не отмечено ' + left + ' ' + plural(left, 'позиция', 'позиции', 'позиций') : ''}</span>
     </div>
-    ${left ? `<div class="bought-actions">
-      <button type="button" class="btn btn-primary btn-sm" id="btnRebuildBought">Пересобрать меню из купленного</button>
-      <button type="button" class="btn btn-ghost btn-sm" id="btnKeepPlan">Оставить как есть</button>
-    </div>` : `<div class="bought-actions"><span class="bought-done">✓ Куплено всё по списку</span></div>`}`;
+    <div class="bought-actions">
+      ${left ? `<button type="button" class="btn btn-primary btn-sm" id="btnRebuildBought">Пересобрать меню из купленного</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btnKeepPlan">Оставить как есть</button>`
+             : `<span class="bought-done">✓ Куплено всё по списку</span>`}
+      <button type="button" class="btn btn-gold btn-sm" id="btnSaveBuy">🧾 Сохранить покупку</button>
+    </div>`;
 
   const rb = $('#btnRebuildBought');
   if (rb) rb.addEventListener('click', () => rebuildFromBought(got, sum));
@@ -1133,6 +1172,8 @@ function renderBought() {
     boughtCollapsed = true;
     renderBought();
   });
+  const sv = $('#btnSaveBuy');
+  if (sv) sv.addEventListener('click', () => saveBoughtToAccount(got, sum, left, sv));
 }
 
 /* Собираем меню, пока хватает купленных продуктов */
@@ -2055,6 +2096,7 @@ function run() {
           state.plan = result;
           renderAll();
           savePlan();
+          saveOrderToAccount();
           /* приложение слушает это событие, чтобы открыть экран результата */
           if (typeof window.onPlanReady === 'function') window.onPlanReady();
         }
@@ -2331,3 +2373,164 @@ function loadPlan() {
     $$('.reveal').forEach(el => el.classList.add('in'));
   }
 })();
+
+/* ============================================================
+   СВЯЗЬ С АККАУНТОМ
+   План сохраняется в историю сам, покупка — по кнопке в списке.
+   Длинные периоды (месяц и два) открыты по подписке.
+   ============================================================ */
+
+/* в приложении кабинет — это экран, на сайте — отдельная страница */
+function goToAccount() {
+  if (document.body.classList.contains('app') && typeof window.showAppScreen === 'function') {
+    window.showAppScreen('account');
+    return;
+  }
+  location.href = 'account.html';
+}
+
+/* короткая подпись плана: чтобы не писать одно и то же дважды */
+function planSignature() {
+  const p = state.plan;
+  if (!p) return '';
+  return [state.days, state.goal, state.budget, state.store,
+    Math.round(p.shop.total), p.menu.map(d => d.meals.map(m => m.id).join()).join('|')].join('~');
+}
+
+function cuisineNames() {
+  if (!state.cuisines.length) return 'любые';
+  return state.cuisines
+    .map(id => { const c = CUISINES.find(x => x.id === id); return c ? c.name : id; })
+    .join(', ');
+}
+
+function planDishNames() {
+  const seen = {};
+  const out = [];
+  (state.plan ? state.plan.menu : []).forEach(d => d.meals.forEach(m => {
+    const r = RECIPE_BY_ID[m.id];
+    if (!r || seen[r.id]) return;
+    seen[r.id] = 1;
+    out.push(r.n);
+  }));
+  return out.slice(0, 40);
+}
+
+/* план → история меню */
+function saveOrderToAccount() {
+  if (!window.Account || !Account.isSignedIn() || !state.plan) return;
+  const p = state.plan;
+  const store = STORES.find(s => s.id === state.store);
+  Account.addOrder({
+    sig: planSignature(),
+    days: state.days,
+    goal: p.targets.goal.name,
+    budget: state.budget,
+    store: store ? store.name : '',
+    people: peopleLabel(),
+    meals: state.mealsCount,
+    cuisines: cuisineNames(),
+    total: Math.round(p.shop.total),
+    kcal: Math.round(p.macros.kc),
+    protein: Math.round(p.macros.pr),
+    fiber: Math.round(p.macros.fi),
+    dishes: planDishNames(),
+  });
+}
+
+/* отмеченные галочками позиции → история покупок */
+function saveBoughtToAccount(got, sum, left, btn) {
+  if (!window.Account) return;
+
+  if (!Account.isSignedIn()) {
+    const go = confirm(
+      'Чтобы сохранять покупки, нужен аккаунт: в нём хранится история — что, когда и на какую сумму вы купили.\n\n' +
+      'Открыть личный кабинет?');
+    if (go) goToAccount();
+    return;
+  }
+  if (!got || !got.length) return;
+
+  const store = STORES.find(s => s.id === state.store);
+  Account.addPurchase({
+    store: store ? store.name : '',
+    sum: Math.round(sum),
+    partial: left > 0,
+    left: left || 0,
+    planDays: state.days,
+    items: got.map(i => ({
+      name: i.p.n,
+      qty: i.packs + ' × ' + i.p.packName,
+      kg: i.buyKg,
+      cost: Math.round(i.cost),
+    })),
+  });
+
+  if (btn) {
+    const was = btn.innerHTML;
+    btn.innerHTML = '✓ Покупка сохранена';
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = was; btn.disabled = false; }, 2600);
+  }
+}
+
+/* ---------- длинные периоды по подписке ---------- */
+function periodAllowed(days) {
+  if (!window.Account || !Account.limitsOn()) return true;
+  return days <= Account.FREE_MAX_DAYS || Account.isPro();
+}
+
+function refreshPeriodLocks() {
+  if (!window.Account) return;
+  document.querySelectorAll('#periodChips .chip').forEach(c => {
+    const locked = !periodAllowed(+c.dataset.days);
+    c.classList.toggle('chip-locked', locked);
+    c.dataset.lock = locked ? '1' : '';
+  });
+  const hint = document.querySelector('#periodHint');
+  if (hint) {
+    hint.hidden = !Account.limitsOn() || Account.isPro();
+    if (hint.hidden) return;
+    hint.innerHTML = 'Месяц и два месяца открыты по подписке. ' +
+      (Account.isSignedIn()
+        ? '<button type="button" class="link-btn" data-goacc>Включить пробные ' +
+          Account.TRIAL_DAYS + ' дней бесплатно</button>'
+        : '<button type="button" class="link-btn" data-goacc>Создать аккаунт</button> — пробный период ' +
+          Account.TRIAL_DAYS + ' дней бесплатно');
+    hint.querySelectorAll('[data-goacc]').forEach(el =>
+      el.addEventListener('click', goToAccount));
+  }
+}
+
+function initPeriodLock() {
+  const box = document.querySelector('#periodChips');
+  if (!box || !window.Account) return;
+
+  /* перехватываем клик раньше основного обработчика */
+  box.addEventListener('click', e => {
+    const c = e.target.closest('.chip');
+    if (!c || periodAllowed(+c.dataset.days)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const go = confirm(
+      'Меню на ' + c.dataset.days + ' дней входит в подписку «Про».\n\n' +
+      'Без подписки доступны планы до ' + Account.FREE_MAX_DAYS + ' дней — это неделя и две.\n' +
+      'Пробный период ' + Account.TRIAL_DAYS + ' дней бесплатный.\n\n' +
+      'Открыть личный кабинет?');
+    if (go) goToAccount();
+  }, true);
+
+  Account.on(() => {
+    /* подписка закончилась, а в настройках остался длинный план */
+    if (!periodAllowed(state.days)) {
+      state.days = Account.FREE_MAX_DAYS;
+      document.querySelectorAll('#periodChips .chip').forEach(x =>
+        x.classList.toggle('active', +x.dataset.days === state.days));
+      if (typeof saveSettings === 'function') saveSettings();
+    }
+    refreshPeriodLocks();
+  });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPeriodLock);
+else initPeriodLock();

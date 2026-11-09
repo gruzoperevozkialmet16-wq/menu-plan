@@ -6,9 +6,9 @@
    просто скопирует текст заявки и передаст его удобным способом.
    ============================================================ */
 const SUPPORT = {
-  email: '',      /* например 'pochta@example.com' */
-  telegram: '',   /* например 'https://t.me/username' */
-  max: '',        /* например 'https://max.ru/username' */
+  email: 'ddass1477@gmail.com',
+  telegram: 'https://t.me/tataralmet16',
+  max: '',
 };
 
 (function () {
@@ -18,6 +18,35 @@ const SUPPORT = {
 
   let bugType = 'Ошибка в расчёте';
   let lastReport = null;
+
+  /* ---------- отправка заявки к владельцу в базу ----------
+     Если облако настроено (config.js) — заявка уходит прямо в базу,
+     и человек видит честную галочку «доложено». Если нет — работает
+     старый способ: готовый текст, который отправляют вручную. */
+  const CLOUD = window.MENUPLAN_CLOUD && window.MENUPLAN_CLOUD.url && window.MENUPLAN_CLOUD.key;
+
+  async function sendToServer(fields) {
+    if (!CLOUD) return false;
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => ctrl && ctrl.abort(), 15000);
+    try {
+      const res = await fetch(window.MENUPLAN_CLOUD.url.replace(/\/+$/, '') + '/rest/v1/bug_reports', {
+        method: 'POST',
+        headers: {
+          apikey: window.MENUPLAN_CLOUD.key,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(fields),
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      return res.ok;
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   /* ---------- хранение ---------- */
   function loadBugs() {
@@ -117,7 +146,7 @@ const SUPPORT = {
       $$('#bugType .chip').forEach(x => x.classList.toggle('active', x === b));
     }));
 
-    $('#bugForm').addEventListener('submit', e => {
+    $('#bugForm').addEventListener('submit', async e => {
       e.preventDefault();
       const text = $('#bugText').value.trim();
       const field = $('#bugText');
@@ -139,11 +168,47 @@ const SUPPORT = {
       });
       saveBugs(list);
 
+      const btn = $('#bugSubmit');
+      const btnLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Отправляем…';
+
+      /* пробуем доставить заявку прямо владельцу */
+      const delivered = await sendToServer({
+        type: bugType,
+        where_at: $('#bugWhere').value.trim() || null,
+        description: text,
+        steps: $('#bugSteps').value.trim() || null,
+        contact: $('#bugContact').value.trim() || null,
+        page: location.href,
+        screen: window.innerWidth + '×' + window.innerHeight,
+        ua: navigator.userAgent,
+      });
+
+      btn.disabled = false;
+      btn.textContent = btnLabel;
+
       $('#bugPreview').textContent = lastReport;
       $('#bugId').textContent = id;
-      $('#bugSendHint').innerHTML = sendHint(id);
       $('#bugResult').hidden = false;
-      $('#bugNote').innerHTML = 'Заявка сформирована. Скопируйте её или скачайте файлом.';
+
+      const ok = $('#bugOk');
+      if (delivered) {
+        /* заявка ушла в базу — показываем честную галочку */
+        ok.hidden = false;
+        ok.innerHTML = '<span class="ab-ok-mark">✓</span>' +
+          '<span><b>Доложено об ошибке.</b> Спасибо! Мы получили вашу заявку' +
+          ($('#bugContact').value.trim() ? ' и свяжемся с вами, если понадобятся детали.' : '. Если оставите контакт — сможем ответить.') +
+          '</span>';
+        $('#bugSendHint').innerHTML = 'Хотите продублировать напрямую? ' + sendHint(id);
+        $('#bugNote').innerHTML = 'Номер заявки <b>' + id + '</b> сохранён в вашем браузере.';
+      } else {
+        /* база недоступна — старый способ, без ложной галочки */
+        ok.hidden = true;
+        $('#bugSendHint').innerHTML = sendHint(id);
+        $('#bugNote').innerHTML = 'Заявка сформирована. Отправьте её кнопкой ниже или скопируйте текст.';
+      }
+
       renderSaved();
       $('#bugResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });

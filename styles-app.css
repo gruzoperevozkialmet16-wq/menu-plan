@@ -91,7 +91,7 @@
 /* ---------- нижняя навигация ---------- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: rgba(255, 255, 255, .94); backdrop-filter: saturate(1.5) blur(16px);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -221,3 +221,39 @@
 .app .cat-row { padding: 11px 14px; }
 
 .last-plan { margin-bottom: 14px; border-style: dashed; }
+
+/* ============================================================
+   КАБИНЕТ ВНУТРИ ПРИЛОЖЕНИЯ
+   Переопределяем то, что скрыто общими правилами приложения.
+   ============================================================ */
+.app .acc-form .field-label { display: block; }
+.app .acc-form .field { margin: 0; }
+
+.app-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
+  padding: 18px; margin-bottom: 14px;
+}
+.app .acc-auth { padding: 18px; }
+.app .acc-tabs { margin-bottom: 18px; }
+.app .acc-why-list.app-why { margin: 16px 0; }
+.app .acc-why-list li { padding: 13px 15px; }
+.app .acc-why-list i { width: 34px; height: 34px; font-size: 17px; border-radius: 10px; }
+
+.app .acc-profile { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.app .acc-avatar { width: 48px; height: 48px; font-size: 19px; }
+.app .acc-profile-body h3 { font-size: 19px; }
+.app .acc-sub h3 { font-size: 20px; margin: 12px 0 7px; }
+.app .acc-stats { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.app .acc-stat { padding: 14px 12px; }
+.app .acc-stat b { font-size: 21px; }
+.app .acc-tiers { grid-template-columns: 1fr; gap: 12px; }
+.app .tier { padding: 20px 18px; }
+.app .tier-flag { position: static; display: inline-block; margin-bottom: 10px; }
+
+.app-sub-head { margin: 26px 0 14px; }
+.app-sub-head h3 { font-family: var(--serif); font-size: 21px; font-weight: 500; }
+.app-sub-head p { font-size: 13px; color: var(--ink-2); margin-top: 5px; line-height: 1.5; }
+
+.app .acc-note { margin-bottom: 14px; }
+.app #histBody { padding-bottom: 8px; }

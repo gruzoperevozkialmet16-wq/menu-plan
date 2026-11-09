@@ -188,17 +188,17 @@ function fpOpenRecipe(id) {
 }
 function fpCloseModal() { $('#modal').hidden = true; document.body.style.overflow = ''; }
 
-/* В приложении карточки открывает планировщик (app.js) — у него свой
-   обработчик. На отдельной странице «Холодильник» открываем сами: раньше
-   здесь вызывались функции планировщика, которых на этой странице нет. */
-if (!shared) {
-  document.addEventListener('click', e => {
-    const rec = e.target.closest('[data-recipe]');
-    if (rec) { fpOpenRecipe(rec.dataset.recipe); return; }
-    if (e.target.closest('[data-close]')) fpCloseModal();
-  });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') fpCloseModal(); });
-}
+document.addEventListener('click', e => {
+  /* карточки холодильника лежат в #fridgeResult — открываем их своей
+     модалкой. Так на отдельной странице (где нет app.js) рецепт тоже
+     открывается, а в приложении не конфликтует с карточками меню. */
+  const rec = e.target.closest('#fridgeResult [data-recipe]');
+  if (rec) { fpOpenRecipe(rec.dataset.recipe); return; }
+  if (e.target.closest('#modal [data-close]')) fpCloseModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#modal').hidden) fpCloseModal();
+});
 
 const fridge = {
   have: [],          /* id продуктов, которые есть дома */
@@ -339,6 +339,34 @@ function fridgeMatch() {
   return rows;
 }
 
+/* Берём топ-N по кругу из разных кухонь: список уже отсортирован по
+   качеству, но русских рецептов в базе почти половина, и при равном
+   счёте они занимали всю выдачу. Round-robin возвращает разнообразие,
+   сохраняя внутри каждой кухни лучшие сверху. */
+function fpDiversify(list, limit) {
+  const byCuisine = {};
+  const order = [];
+  list.forEach(x => {
+    const c = x.r.cuisine || '?';
+    if (!byCuisine[c]) { byCuisine[c] = []; order.push(c); }
+    byCuisine[c].push(x);
+  });
+  const out = [];
+  let added = true;
+  while (out.length < limit && added) {
+    added = false;
+    for (const c of order) {
+      const q = byCuisine[c];
+      if (q.length) {
+        out.push(q.shift());
+        added = true;
+        if (out.length >= limit) break;
+      }
+    }
+  }
+  return out;
+}
+
 function renderFridgeResult() {
   const rows = fridgeMatch();
   const box = $('#fridgeResult');
@@ -348,9 +376,9 @@ function renderFridgeResult() {
     return;
   }
 
-  const ready = rows.filter(x => x.missingCount === 0);
-  const near1 = rows.filter(x => x.missingCount === 1).slice(0, 12);
-  const near2 = rows.filter(x => x.missingCount === 2).slice(0, 9);
+  const ready = fpDiversify(rows.filter(x => x.missingCount === 0), 18);
+  const near1 = fpDiversify(rows.filter(x => x.missingCount === 1), 12);
+  const near2 = fpDiversify(rows.filter(x => x.missingCount === 2), 9);
 
   const card = x => {
     const info = MEALS.find(m => m.id === x.r.m);

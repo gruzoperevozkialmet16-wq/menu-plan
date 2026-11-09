@@ -124,11 +124,41 @@
             <span style="width:12%;background:#8b9791" title="Масло, специи, прочее"></span>
           </div>
           <ul class="ab-split-legend">
-            <li><i style="background:#c0563f"></i><b>32 %</b> мясо, птица, рыба <small>самый дорогой белок — здесь легче всего сэкономить, заменив часть на яйца, творог и бобовые</small></li>
-            <li><i style="background:#6a994e"></i><b>22 %</b> овощи и фрукты <small>сезонные дешевле привозных, замороженные не портятся</small></li>
-            <li><i style="background:#b08a46"></i><b>18 %</b> крупы, макароны, хлеб <small>дают сытость за копейки, берите большими упаковками</small></li>
-            <li><i style="background:#5d87a8"></i><b>16 %</b> молочное и яйца <small>дешёвый белок: творог и яйца выгоднее мяса в 1,5–2 раза</small></li>
-            <li><i style="background:#8b9791"></i><b>12 %</b> масло, специи, сладкое <small>покупается редко и служит месяцами</small></li>
+            <li>
+              <i style="background:#c0563f"></i>
+              <div class="sl-body">
+                <div class="sl-head"><b>32 %</b><span>мясо, птица, рыба</span></div>
+                <small>самый дорогой белок — здесь легче всего сэкономить, заменив часть на яйца, творог и бобовые</small>
+              </div>
+            </li>
+            <li>
+              <i style="background:#6a994e"></i>
+              <div class="sl-body">
+                <div class="sl-head"><b>22 %</b><span>овощи и фрукты</span></div>
+                <small>сезонные дешевле привозных, замороженные не портятся</small>
+              </div>
+            </li>
+            <li>
+              <i style="background:#b08a46"></i>
+              <div class="sl-body">
+                <div class="sl-head"><b>18 %</b><span>крупы, макароны, хлеб</span></div>
+                <small>дают сытость за копейки, берите большими упаковками</small>
+              </div>
+            </li>
+            <li>
+              <i style="background:#5d87a8"></i>
+              <div class="sl-body">
+                <div class="sl-head"><b>16 %</b><span>молочное и яйца</span></div>
+                <small>дешёвый белок: творог и яйца выгоднее мяса в 1,5–2 раза</small>
+              </div>
+            </li>
+            <li>
+              <i style="background:#8b9791"></i>
+              <div class="sl-body">
+                <div class="sl-head"><b>12 %</b><span>масло, специи, сладкое</span></div>
+                <small>покупается редко и служит месяцами</small>
+              </div>
+            </li>
           </ul>
         </div>
 
@@ -251,6 +281,20 @@
           заявка, тем быстрее это произойдёт.
         </p>
 
+        <div class="ab-contacts">
+          <b>Связь напрямую</b>
+          <div class="ab-contacts-row">
+            <a class="ab-contact" href="mailto:ddass1477@gmail.com">
+              <span class="ab-contact-ic">✉️</span>
+              <span><i>Почта</i>ddass1477@gmail.com</span>
+            </a>
+            <a class="ab-contact" href="https://t.me/tataralmet16" target="_blank" rel="noopener">
+              <span class="ab-contact-ic">✈️</span>
+              <span><i>Telegram</i>@tataralmet16</span>
+            </a>
+          </div>
+        </div>
+
         <form class="ab-form" id="bugForm" autocomplete="off">
           <div class="ab-field">
             <label>Что случилось</label>
@@ -285,18 +329,19 @@
           </div>
 
           <div class="ab-form-actions">
-            <button type="submit" class="btn btn-primary btn-lg" id="bugSubmit">Оформить заявку</button>
+            <button type="submit" class="btn btn-primary btn-lg" id="bugSubmit">Отправить заявку</button>
             <button type="button" class="btn btn-ghost" id="bugClear">Очистить</button>
           </div>
           <p class="ab-form-note" id="bugNote">
-            Заявка формируется прямо в браузере: вы получаете готовый текст и отправляете его
-            удобным способом. Никакие данные никуда не уходят автоматически.
+            Опишите проблему и нажмите «Отправить заявку» — она придёт напрямую к нам.
+            Оставьте контакт, если хотите ответ. Копия заявки сохранится и в вашем браузере.
           </p>
         </form>
 
         <div class="ab-result" id="bugResult" hidden>
+          <div class="ab-ok" id="bugOk" hidden></div>
           <div class="ab-result-head">
-            <h3>Заявка готова</h3>
+            <h3>Текст заявки</h3>
             <span id="bugId"></span>
           </div>
           <pre id="bugPreview"></pre>
@@ -391,7 +436,7 @@
     </div>
     <div class="legal-copy">
       <span>© 2026 ПланМеню. Все права защищены.</span>
-      <span>Расчёт выполняется в браузере · персональные данные не собираются</span>
+      <span>Расчёт выполняется в браузере · из личных данных — только почта для аккаунта</span>
     </div>
   </div>
 </section>
@@ -415,10 +460,14 @@
       <a href="catalog.html">Каталог и цены</a>
       <a href="about.html">Информация</a>
       <a href="app.html">Приложение</a>
+      <a href="account.html">Личный кабинет</a>
     </div>
   </div>
 </footer>
 
+<script src="config.js"></script>
+<script src="metrika.js"></script>
+<script src="account.js"></script>
 <script src="about.js"></script>
 <script src="nav.js"></script>
 </body>

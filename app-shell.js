@@ -14,6 +14,7 @@
     fridge:  { title: 'Холодильник', sub: 'блюда из того, что есть дома', tab: 'fridge' },
     catalog: { title: 'Каталог и цены', sub: 'продукты, цены и КБЖУ', tab: 'catalog' },
     info:    { title: 'Информация', sub: 'как это работает', tab: 'info' },
+    account: { title: 'Кабинет', sub: 'подписка и история покупок', tab: 'account' },
   };
 
   let current = 'plan';
@@ -33,6 +34,10 @@
     to.classList.add('active');
     current = name;
 
+    /* в приложении экраны — одна страница, поэтому смену экрана
+       засчитываем в Метрике вручную как отдельный просмотр */
+    if (typeof window.metrikaHit === 'function') window.metrikaHit('/app/' + name);
+
     $('#appTitle').innerHTML = info.title;
     $('#appSub').textContent = info.sub;
     $('#appTop').classList.toggle('has-back', !!info.back || history.length > 0);
@@ -44,6 +49,9 @@
     window.scrollTo(0, 0);
     html.style.scrollBehavior = prev;
   }
+
+  /* планировщик зовёт этот метод, когда нужно открыть кабинет */
+  window.showAppScreen = show;
 
   function goBack() {
     const prev = history.pop();

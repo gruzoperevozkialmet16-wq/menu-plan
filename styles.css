@@ -450,7 +450,14 @@ section { scroll-margin-top: 90px; }
   margin: 0; padding: 15px 22px; background: var(--cream); border-bottom: 1px solid var(--line);
   font-size: 15px; font-weight: 700;
 }
-.cat-row { display: flex; align-items: center; gap: 14px; padding: 12px 22px; border-bottom: 1px solid var(--line-2); font-size: 14.5px; }
+/* Перенос обязателен: у колонок заданы минимальные ширины, и в одну строку
+   они помещаются только на широком экране. Без переноса строка вылезала за
+   пределы .cat-block, а он обрезает лишнее (overflow: hidden) — и цена,
+   крайняя справа, пропадала целиком. */
+.cat-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 14px; row-gap: 4px;
+  padding: 12px 22px; border-bottom: 1px solid var(--line-2); font-size: 14.5px;
+}
 .cat-row:last-child { border: 0; }
 .cat-row:hover { background: var(--cream); }
 .cat-row .cr-name { flex: 1; font-weight: 600; min-width: 140px; }
@@ -509,6 +516,10 @@ section { scroll-margin-top: 90px; }
   .hero { padding: 60px 0 70px; }
   .field-grid { grid-template-columns: 1fr; }
 
+  /* Здесь строка каталога уже переносится, и цена без этого прижималась бы
+     к левому краю новой строки. Отступ ставит её у правого края в любом случае. */
+  .cat-row .cr-price { margin-left: auto; }
+
   /* вкладки уезжают в выпадающее меню под кнопкой-бургером */
   .nav-toggle { display: grid; }
   .header-inner { position: relative; }
@@ -546,9 +557,10 @@ section { scroll-margin-top: 90px; }
   }
   .result-actions { width: 100%; }
   .result-actions .btn { flex: 1; }
-  .cat-row { flex-wrap: wrap; row-gap: 4px; }
   .cat-row .cr-name { flex: 1 0 60%; }
-  .cat-row .cr-price { flex: 1 0 30%; }
+  /* ширину цены здесь задаёт доля строки, а прежние 108px не давали ей
+     встать рядом с названием и сбрасывали на отдельную строку */
+  .cat-row .cr-price { flex: 1 0 30%; min-width: 0; }
   .cat-row .cr-pack { flex: 1 0 100%; order: 4; min-width: 0; }
   .cat-row .cr-tags { order: 5; flex: 1 0 100%; }
   .hero-stats { gap: 24px; }
